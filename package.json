@@ -1,0 +1,15 @@
+{
+  "name": "fizzbuzz-roommate-boss-battle",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A roommate confrontation simulator framed as a boss battle.",
+  "type": "module",
+  "scripts": {
+    "dev": "node server/index.js",
+    "start": "node server/index.js",
+    "check": "node --check server/index.js && node --check script.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

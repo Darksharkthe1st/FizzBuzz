@@ -25,6 +25,8 @@ const bossHealth = document.querySelector("#bossHealth");
 
 const state = {
   argument: "",
+  sessionId: "",
+  roommateLine: "",
   photoUrl: "",
   round: 1,
   player: 100,
@@ -34,6 +36,20 @@ const state = {
   evidence: 4,
   aggro: 3,
 };
+
+async function postJson(path, payload) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`);
+  }
+  return response.json();
+}
 
 const roommateTitles = [
   "The Deflection Engine",
@@ -111,6 +127,22 @@ function updateBattleCopy() {
   attackCaption.textContent = `A focused opener about "${topic}" with zero room for interpretive dance.`;
 }
 
+function applySession(session) {
+  state.sessionId = session.sessionId || "";
+  state.round = session.round ?? state.round;
+  state.player = session.player ?? state.player;
+  state.boss = session.boss ?? state.boss;
+  state.roommateLine = session.roommateLine || "";
+  roundBadge.textContent = `Round ${state.round}: ${session.roundTopic || shortTopic(state.argument, 42)}`;
+  bossTitle.textContent = session.bossTitle || bossTitle.textContent;
+  floorNote.textContent = `Evidence bag: ${session.topic || shortTopic(state.argument)}`;
+  attackName.textContent = session.opener?.name || makeAttackName(state.argument);
+  attackCaption.textContent =
+    session.opener?.line ||
+    `A focused opener about "${shortTopic(state.argument)}" with zero room for interpretive dance.`;
+  setHealth();
+}
+
 function showScreen(screen) {
   prepScreen.classList.toggle("is-active", screen === "prep");
   battleScreen.classList.toggle("is-active", screen === "battle");
@@ -128,11 +160,13 @@ roommatePhoto.addEventListener("change", () => {
   bossPhotoWrap.classList.add("has-image");
 });
 
-prepForm.addEventListener("submit", (event) => {
+prepForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   state.argument = argumentInput.value;
   state.evidence = Number(evidenceInput.value);
   state.aggro = Number(aggroInput.value);
+  state.sessionId = "";
+  state.roommateLine = "";
   state.round = 1;
   state.player = 100;
   state.boss = 100;
@@ -146,6 +180,17 @@ prepForm.addEventListener("submit", (event) => {
   setHealth();
   subtitleLine.textContent = "You approach the door. Somewhere inside, accountability puts on noise-canceling headphones.";
   showScreen("battle");
+
+  try {
+    const session = await postJson("/api/session", {
+      argument: state.argument,
+      evidence: state.evidence,
+      aggro: state.aggro,
+    });
+    applySession(session);
+  } catch {
+    state.roommateLine = `What? I was literally about to deal with ${shortTopic(state.argument)}.`;
+  }
 });
 
 doorButton.addEventListener("click", () => {
@@ -160,12 +205,39 @@ doorButton.addEventListener("click", () => {
     hallwaySet.classList.remove("is-knocking");
     hallwaySet.classList.add("is-open");
     knockText.textContent = "Opened";
-    subtitleLine.textContent = `"What? I was literally about to deal with ${shortTopic(state.argument)}."`;
+    subtitleLine.textContent = `"${state.roommateLine || `What? I was literally about to deal with ${shortTopic(state.argument)}.`}"`;
     speakButton.disabled = false;
   }, 900);
 });
 
-speakButton.addEventListener("click", () => {
+speakButton.addEventListener("click", async () => {
+  if (state.sessionId) {
+    try {
+      speakButton.disabled = true;
+      const next = await postJson("/api/argue", { sessionId: state.sessionId });
+      state.round = next.round;
+      state.player = next.player;
+      state.boss = next.boss;
+      attackName.textContent = next.attack.name;
+      attackCaption.textContent = next.attack.line;
+      roundBadge.textContent = next.complete ? "Victory: Accountability Located" : `Round ${state.round}`;
+      subtitleLine.textContent = next.complete
+        ? next.roommateLine
+        : `Roommate: "${next.roommateLine}"`;
+      setHealth();
+      bossHealth.parentElement.classList.add("damage-pop");
+      window.setTimeout(() => bossHealth.parentElement.classList.remove("damage-pop"), 450);
+      speakButton.disabled = next.complete;
+      if (next.complete) {
+        speakButton.textContent = "Grievance filed";
+      }
+      return;
+    } catch {
+      speakButton.disabled = false;
+      state.sessionId = "";
+    }
+  }
+
   const counter = counters[state.exchange % counters.length];
   const excuse = excuses[(state.exchange + state.aggro) % excuses.length];
   const damage = 10 + state.evidence * 3;
@@ -192,6 +264,8 @@ speakButton.addEventListener("click", () => {
 
 resetButton.addEventListener("click", () => {
   speakButton.textContent = "Escalate politely";
+  state.sessionId = "";
+  state.roommateLine = "";
   showScreen("prep");
   window.scrollTo({ top: 0, behavior: "smooth" });
 });

@@ -1,5 +1,29 @@
-Our project: FizzBuzz,
+FizzBuzz
+========
 
-Pratice confronting your roommate with an
-AI designed to be the most annoying, elusive,
-distracting and unyeilding roommate ever.
+Practice confronting your roommate with an AI designed to be the most annoying, elusive,
+distracting, and unyielding roommate ever.
+
+Run
+---
+
+```bash
+npm run dev
+```
+
+Open http://127.0.0.1:5175.
+
+Backend
+-------
+
+The backend is a dependency-free Node server in `server/index.js`.
+
+Routes:
+
+- `GET /api/health` - service status and integration flags.
+- `POST /api/session` - creates a confrontation session from `argument`, `evidence`, and `aggro`.
+- `POST /api/argue` - advances the boss battle for a `sessionId`.
+- `POST /api/voice/token` - placeholder for Deepgram token minting.
+- `POST /api/media/avatar` - placeholder for Pika avatar/video generation.
+
+Copy `.env.example` to `.env` when adding real keys for OpenAI, Deepgram, or Pika.
