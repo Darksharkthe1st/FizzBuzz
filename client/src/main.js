@@ -19,9 +19,14 @@ const knockText = document.querySelector("#knockText");
 const speakButton = document.querySelector("#speakButton");
 const resetButton = document.querySelector("#resetButton");
 const subtitleLine = document.querySelector("#subtitleLine");
+const ttsStyleLabel = document.querySelector("#ttsStyleLabel");
 const voiceTranscript = document.querySelector("#voiceTranscript");
 const voiceStatus = document.querySelector("#voiceStatus");
 const voiceMeter = document.querySelector("#voiceMeter");
+const refereeModeBadge = document.querySelector("#refereeModeBadge");
+const refereeTurnState = document.querySelector("#refereeTurnState");
+const refereeConfidence = document.querySelector("#refereeConfidence");
+const refereeLatency = document.querySelector("#refereeLatency");
 const attackName = document.querySelector("#attackName");
 const attackCaption = document.querySelector("#attackCaption");
 const roundBadge = document.querySelector("#roundBadge");
@@ -60,6 +65,18 @@ const state = {
     // (Deepgram retry, etc.) doesn't double-advance the battle. -1 means no
     // turn has advanced yet in this voice session.
     lastAdvancedTurnIndex: -1,
+    // Referee panel latency readout. micStartAt/firstTranscriptAt cover
+    // "mic to first transcript" once per voice session. endOfTurnAt +
+    // endOfTurnPending cover "end of turn to roommate response" per turn --
+    // pending is cleared the moment a response actually starts playing, so
+    // a line spoken with no preceding EndOfTurn (the door-opener) doesn't
+    // get measured against a stale timestamp.
+    timing: {
+      micStartAt: 0,
+      firstTranscriptAt: 0,
+      endOfTurnAt: 0,
+      endOfTurnPending: false,
+    },
   },
   tts: {
     audio: null,
@@ -105,6 +122,65 @@ function setVoiceActive(isActive) {
   voiceMeter.style.width = isActive ? "72%" : "12%";
 }
 
+function setRefereeMode(label) {
+  refereeModeBadge.textContent = label;
+}
+
+function setRefereeTurnState(label) {
+  refereeTurnState.textContent = label;
+}
+
+// Only Deepgram (Flux/Nova) results carry a real confidence score -- pass
+// null/undefined to clear the readout for browser-fallback turns instead of
+// showing a number that has nothing to do with Deepgram.
+function setRefereeConfidence(confidence) {
+  if (typeof confidence !== "number" || Number.isNaN(confidence)) {
+    refereeConfidence.textContent = "";
+    return;
+  }
+  refereeConfidence.textContent = `Confidence: ${Math.round(confidence * 100)}%`;
+}
+
+function resetRefereePanel() {
+  setRefereeMode("Idle");
+  setRefereeTurnState("Awaiting mic");
+  setRefereeConfidence(null);
+  refereeLatency.textContent = "";
+  state.voice.timing.micStartAt = 0;
+  state.voice.timing.firstTranscriptAt = 0;
+  state.voice.timing.endOfTurnAt = 0;
+  state.voice.timing.endOfTurnPending = false;
+}
+
+function markMicLatencyStart() {
+  state.voice.timing.micStartAt = performance.now();
+  state.voice.timing.firstTranscriptAt = 0;
+}
+
+function markFirstTranscript() {
+  const timing = state.voice.timing;
+  if (timing.firstTranscriptAt || !timing.micStartAt) return;
+  timing.firstTranscriptAt = performance.now();
+  const ms = Math.round(timing.firstTranscriptAt - timing.micStartAt);
+  refereeLatency.textContent = `Mic to first transcript: ${ms}ms`;
+}
+
+function markEndOfTurn() {
+  state.voice.timing.endOfTurnAt = performance.now();
+  state.voice.timing.endOfTurnPending = true;
+}
+
+// Called right as roommate audio actually starts playing (not when the
+// network request resolves), so the latency reflects what the audience
+// hears, not request overhead.
+function markRoommateResponseStart() {
+  const timing = state.voice.timing;
+  if (!timing.endOfTurnPending) return;
+  timing.endOfTurnPending = false;
+  const ms = Math.round(performance.now() - timing.endOfTurnAt);
+  refereeLatency.textContent = `End of turn to roommate response: ${ms}ms`;
+}
+
 function getSpeechRecognition() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
@@ -129,6 +205,21 @@ function cleanupDeepgramVoice(socket, stream, recorder, shouldCloseSocket = true
   if (state.voice.recorder === recorder) state.voice.recorder = null;
 }
 
+// Maps current battle state to an Aura TTS speed + label. Cornered (low
+// boss health) takes priority over aggro, since "panicking while losing"
+// reads better than "still aggressive while losing." Verified live against
+// /v1/speak (2026-06-21): the accepted speed range is roughly 0.7-1.5, not
+// the wider range the plan assumed -- all five values below are inside
+// that verified window. Defaults to "normal" when boss/aggro aren't known
+// (e.g. the door-opening line, before any round has happened).
+function resolveTtsStyle(bossHealth = 100, aggro = 3) {
+  if (bossHealth <= 0) return { speed: 0.75, label: "Aura TTS: defeated speed" };
+  if (bossHealth <= 30) return { speed: 1.3, label: "Aura TTS: panic speed" };
+  if (aggro >= 4) return { speed: 1.18, label: "Aura TTS: high aggro speed" };
+  if (aggro <= 2) return { speed: 0.85, label: "Aura TTS: fake apology speed" };
+  return { speed: 1.0, label: "Aura TTS: normal speed" };
+}
+
 // Stops the roommate mid-sentence if they're talking. Used both for the
 // normal "about to play a new line" case and for a deliberate barge-in
 // interruption -- in the interrupt case, nothing else will fire an
@@ -148,6 +239,7 @@ function stopRoommateSpeech() {
   state.tts.audio = null;
   state.tts.objectUrl = "";
   state.tts.speaking = false;
+  ttsStyleLabel.textContent = "";
   if (state.tts.resolveSpeaking) {
     const resolveSpeaking = state.tts.resolveSpeaking;
     state.tts.resolveSpeaking = null;
@@ -158,7 +250,7 @@ function stopRoommateSpeech() {
 // Returns a promise that resolves once playback (or the unavailable/error
 // no-op) is fully done, not just started -- callers that need to wait for
 // the roommate to actually finish talking depend on this.
-function speakWithBrowserVoice(text) {
+function speakWithBrowserVoice(text, speed = 1.0) {
   if (!("speechSynthesis" in window) || !window.SpeechSynthesisUtterance) {
     console.error("[voice] Browser speech synthesis unavailable.");
     return Promise.resolve();
@@ -168,7 +260,7 @@ function speakWithBrowserVoice(text) {
   window.speechSynthesis.cancel();
   return new Promise((resolve) => {
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.04;
+    utterance.rate = 1.04 * speed;
     utterance.pitch = 0.78;
     utterance.volume = 1;
     const finish = () => {
@@ -186,6 +278,7 @@ function speakWithBrowserVoice(text) {
     });
     state.tts.speaking = true;
     state.tts.resolveSpeaking = finish;
+    markRoommateResponseStart();
     window.speechSynthesis.speak(utterance);
   });
 }
@@ -197,12 +290,13 @@ function speakWithBrowserVoice(text) {
 // well before TTS playback even starts (it's a second, separate network
 // call), leaving a window where a fast follow-up turn from the user can
 // advance the battle again and cut the roommate off mid-sentence.
-async function speakRoommateLine(line) {
+async function speakRoommateLine(line, style = resolveTtsStyle()) {
   const text = String(line || "").replace(/^Roommate:\s*/i, "").replace(/^"|"$/g, "").trim();
   if (!text) return;
 
   stopRoommateSpeech();
-  console.info("[voice] Requesting roommate TTS.", { chars: text.length });
+  ttsStyleLabel.textContent = style.label;
+  console.info("[voice] Requesting roommate TTS.", { chars: text.length, speed: style.speed });
 
   try {
     const response = await fetch("/api/voice/speak", {
@@ -210,7 +304,7 @@ async function speakRoommateLine(line) {
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, speed: style.speed }),
     });
     const contentType = response.headers.get("content-type") || "";
 
@@ -236,12 +330,15 @@ async function speakRoommateLine(line) {
         });
         audio.addEventListener("error", (event) => {
           console.error("[voice] Deepgram TTS playback error; using browser speech.", event);
-          resolve(speakWithBrowserVoice(text));
+          resolve(speakWithBrowserVoice(text, style.speed));
         });
-        audio.play().catch((error) => {
-          console.error("[voice] Deepgram TTS playback failed to start; using browser speech.", error);
-          resolve(speakWithBrowserVoice(text));
-        });
+        audio
+          .play()
+          .then(() => markRoommateResponseStart())
+          .catch((error) => {
+            console.error("[voice] Deepgram TTS playback failed to start; using browser speech.", error);
+            resolve(speakWithBrowserVoice(text, style.speed));
+          });
       });
       return;
     }
@@ -252,10 +349,10 @@ async function speakRoommateLine(line) {
       contentType,
       details,
     });
-    await speakWithBrowserVoice(text);
+    await speakWithBrowserVoice(text, style.speed);
   } catch (error) {
     console.error("[voice] TTS request failed; using browser speech fallback.", error);
-    await speakWithBrowserVoice(text);
+    await speakWithBrowserVoice(text, style.speed);
   }
 }
 
@@ -267,6 +364,8 @@ async function startVoiceArgument() {
   state.voice.finalTranscript = "";
   state.voice.interimTranscript = "";
   state.voice.lastAdvancedTurnIndex = -1;
+  markMicLatencyStart();
+  setRefereeTurnState("Awaiting mic");
   setVoiceUi("Requesting mic access. The hallway stenographer is cracking knuckles.");
 
   try {
@@ -282,6 +381,7 @@ async function startVoiceArgument() {
       message: token.message,
     });
     if (token.mode === "deepgram" && token.token && token.listenUrl) {
+      setRefereeMode(token.sttMode === "flux" ? "Flux live" : "Nova fallback");
       await startDeepgramVoice(token);
       return;
     }
@@ -311,14 +411,21 @@ async function startVoiceArgument() {
 // still resolving is dropped, not acted on.
 function handleFluxTurnInfo(data) {
   const transcript = String(data.transcript || "").trim();
+  // Not confirmed present on every TurnInfo message live -- show it when
+  // Deepgram includes it, clear it otherwise rather than guessing.
+  setRefereeConfidence(typeof data.confidence === "number" ? data.confidence : null);
 
   if (data.event === "StartOfTurn") {
+    setRefereeTurnState("User started speaking");
+    markFirstTranscript();
     setVoiceUi("Hearing you in real time...", transcript);
     return;
   }
 
   if (transcript) {
     state.voice.finalTranscript = transcript;
+    markFirstTranscript();
+    setRefereeTurnState(data.event === "EndOfTurn" ? "End of turn detected" : "Still talking");
     setVoiceUi(
       data.event === "EndOfTurn" ? "Heard that. The roommate is preparing an objection." : "Hearing you in real time...",
       transcript,
@@ -326,6 +433,8 @@ function handleFluxTurnInfo(data) {
   }
 
   if (data.event !== "EndOfTurn") return;
+  markEndOfTurn();
+  setRefereeTurnState("End of turn detected");
 
   if (data.turn_index === state.voice.lastAdvancedTurnIndex) {
     console.warn("[voice] Duplicate EndOfTurn for turn_index", data.turn_index, "; ignoring.");
@@ -341,6 +450,7 @@ function handleFluxTurnInfo(data) {
     return;
   }
 
+  setRefereeTurnState("Roommate preparing deflection");
   void resolveLiveArgument(transcript || state.voice.finalTranscript, { teardownVoice: false });
 }
 
@@ -368,6 +478,7 @@ async function startDeepgramVoice(token) {
   socket.addEventListener("open", () => {
     if (state.voice.socket !== socket) return;
     console.info("[voice] Deepgram websocket open; starting MediaRecorder.");
+    setRefereeTurnState("Listening");
     setVoiceUi("Deepgram is live. Start arguing before the roommate develops a new excuse.");
     recorder.start(250);
   });
@@ -403,6 +514,9 @@ async function startDeepgramVoice(token) {
       transcript,
     });
 
+    markFirstTranscript();
+    setRefereeConfidence(data.channel?.alternatives?.[0]?.confidence);
+
     if (data.is_final) {
       state.voice.finalTranscript = `${state.voice.finalTranscript} ${transcript}`.trim();
     } else {
@@ -412,12 +526,15 @@ async function startDeepgramVoice(token) {
     const visibleTranscript = [state.voice.finalTranscript, state.voice.interimTranscript]
       .filter(Boolean)
       .join(" ");
+    setRefereeTurnState(data.speech_final ? "End of turn detected" : "Still talking");
     setVoiceUi(
       data.is_final ? "Heard that. The roommate is preparing an objection." : "Hearing you in real time...",
       visibleTranscript,
     );
 
     if (data.speech_final) {
+      markEndOfTurn();
+      setRefereeTurnState("Roommate preparing deflection");
       void resolveLiveArgument(state.voice.finalTranscript || transcript);
     }
   });
@@ -464,11 +581,13 @@ function startBrowserSpeechFallback(reason = "") {
   const SpeechRecognition = getSpeechRecognition();
   if (!SpeechRecognition) {
     console.error("[voice] Browser speech fallback unavailable.");
+    setRefereeMode("Typed fallback");
     stopVoiceArgument(false);
     setVoiceUi(reason || "No Deepgram key and this browser does not expose speech captions.");
     return;
   }
 
+  setRefereeMode("Browser mock");
   state.voice.mode = "browser";
   setVoiceActive(true);
   const recognizer = new SpeechRecognition();
@@ -492,6 +611,12 @@ function startBrowserSpeechFallback(reason = "") {
       }
     }
     state.voice.interimTranscript = interim;
+    markFirstTranscript();
+    // Browser SpeechRecognition isn't Deepgram, so the referee panel
+    // doesn't show a confidence number for it -- showing one here would
+    // misattribute it.
+    setRefereeConfidence(null);
+    setRefereeTurnState(state.voice.finalTranscript ? "End of turn detected" : "Still talking");
     setVoiceUi(
       reason
         ? "Mock voice mode: browser captions are listening while Deepgram waits for keys."
@@ -500,6 +625,8 @@ function startBrowserSpeechFallback(reason = "") {
     );
 
     if (state.voice.finalTranscript) {
+      markEndOfTurn();
+      setRefereeTurnState("Roommate preparing deflection");
       void resolveLiveArgument(state.voice.finalTranscript);
     }
   });
@@ -603,6 +730,7 @@ async function resolveLiveArgument(transcript, { teardownVoice = true } = {}) {
       // (above, or by a manual Stop click that raced this resolution) --
       // checking it (not the teardownVoice param) keeps the message
       // correct in both cases.
+      setRefereeTurnState(state.voice.active ? "Listening" : "Awaiting mic");
       setVoiceUi(
         state.voice.active ? "Still listening. Keep arguing whenever you're ready." : "Mic ready for the next accusation.",
         "Say the next part out loud.",
@@ -791,6 +919,8 @@ prepForm.addEventListener("submit", async (event) => {
   state.exchange = 0;
   state.knocked = false;
   stopVoiceArgument(false);
+  stopRoommateSpeech();
+  resetRefereePanel();
   setVoiceUi("Mic is holstered until the door opens.", "Door closed. Grievance pending.");
   hallwaySet.classList.remove("is-open", "is-knocking");
   doorButton.disabled = false;
@@ -866,7 +996,7 @@ async function advanceBattle(transcript = "") {
       // only the function's return (and therefore resolveLiveArgument's
       // "processing" flag) waits for the roommate to actually finish
       // speaking, so the battle can't advance again mid-sentence.
-      const speaking = speakRoommateLine(next.roommateLine);
+      const speaking = speakRoommateLine(next.roommateLine, resolveTtsStyle(state.boss, state.aggro));
       setHealth();
       bossHealth.parentElement.classList.add("damage-pop");
       window.setTimeout(() => bossHealth.parentElement.classList.remove("damage-pop"), 450);
@@ -904,6 +1034,7 @@ async function advanceBattle(transcript = "") {
     state.boss === 0
       ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
       : excuse,
+    resolveTtsStyle(state.boss, state.aggro),
   );
   setHealth();
   bossHealth.parentElement.classList.add("damage-pop");
@@ -917,6 +1048,8 @@ async function advanceBattle(transcript = "") {
 
 resetButton.addEventListener("click", () => {
   stopVoiceArgument(false);
+  stopRoommateSpeech();
+  resetRefereePanel();
   speakButton.textContent = "Argue live";
   state.sessionId = "";
   state.roommateLine = "";

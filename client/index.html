@@ -122,15 +122,23 @@
 
           <div class="subtitle-rail" aria-live="polite">
             <p id="subtitleLine">The hallway is quiet. Too quiet for someone with shared dishes.</p>
+            <p class="tts-style-label" id="ttsStyleLabel"></p>
           </div>
 
           <div class="voice-evidence" aria-live="polite">
+            <div class="referee-header">
+              <span class="referee-title">Deepgram Referee</span>
+              <span class="referee-badge" id="refereeModeBadge">Idle</span>
+            </div>
+            <p class="referee-turn-state" id="refereeTurnState">Awaiting mic</p>
             <div>
-              <span>Live transcript</span>
+              <span>Stamped transcript</span>
               <strong id="voiceTranscript">Mic is holstered until the door opens.</strong>
+              <span class="referee-confidence" id="refereeConfidence"></span>
             </div>
             <div class="voice-meter" aria-hidden="true"><b id="voiceMeter"></b></div>
             <p id="voiceStatus">Deepgram has not entered the hallway yet.</p>
+            <p class="referee-latency" id="refereeLatency"></p>
           </div>
 
           <div class="battle-controls">

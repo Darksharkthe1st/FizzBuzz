@@ -684,14 +684,30 @@ async function createDeepgramToken() {
   };
 }
 
+// Verified live against /v1/speak with aura-2-thalia-en on 2026-06-21: the
+// API accepts a `speed` query param and it genuinely changes playback pace
+// (confirmed via output byte size at fixed text length), but the accepted
+// range is narrower than Deepgram's docs might suggest -- 0.65 and 1.6 both
+// returned 400, while 0.7 and 1.5 succeeded. Clamp inside that verified
+// window, not a guessed one. There is also no `dg-speed-used` response
+// header in practice (the plan's wording assumed one) -- the exposed
+// headers on a real response are dg-model-name, dg-model-uuid,
+// dg-additional-model-uuids, dg-char-count, dg-request-id, dg-project-id,
+// dg-error, dg-breaks-applied, dg-pronunciations-applied,
+// dg-pronunciation-warnings. Don't try to read or forward dg-speed-used.
+function resolveTtsSpeed(rawSpeed) {
+  return clampNumber(rawSpeed, 0.7, 1.5, 1.0);
+}
+
 async function synthesizeDeepgramSpeech(payload) {
   const apiKey = process.env.DEEPGRAM_API_KEY;
   const enabled = process.env.USE_DEEPGRAM === "true" && Boolean(apiKey);
   const text = createSpeechText(payload.text);
   const model = process.env.DEEPGRAM_TTS_MODEL || "aura-2-thalia-en";
+  const speed = resolveTtsSpeed(payload.speed);
 
   console.info(
-    `[voice] /api/voice/speak requested; USE_DEEPGRAM=${process.env.USE_DEEPGRAM}; keyPresent=${Boolean(apiKey)}; chars=${text.length}; model=${model}`,
+    `[voice] /api/voice/speak requested; USE_DEEPGRAM=${process.env.USE_DEEPGRAM}; keyPresent=${Boolean(apiKey)}; chars=${text.length}; model=${model}; speed=${speed}`,
   );
 
   if (!text) {
@@ -719,7 +735,7 @@ async function synthesizeDeepgramSpeech(payload) {
   try {
     console.info("[voice] Requesting Deepgram TTS audio from /v1/speak.");
     response = await fetch(
-      `https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}`,
+      `https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}&speed=${speed}`,
       {
         method: "POST",
         headers: {
@@ -770,7 +786,7 @@ async function synthesizeDeepgramSpeech(payload) {
 
   const audio = Buffer.from(await response.arrayBuffer());
   console.info(
-    `[voice] Deepgram TTS audio ready; bytes=${audio.length}; requestId=${response.headers.get("dg-request-id") || "none"}`,
+    `[voice] Deepgram TTS audio ready; bytes=${audio.length}; requestId=${response.headers.get("dg-request-id") || "none"}; charCount=${response.headers.get("dg-char-count") || "none"}; speed=${speed}`,
   );
 
   return {
@@ -780,6 +796,7 @@ async function synthesizeDeepgramSpeech(payload) {
     headers: {
       "dg-request-id": response.headers.get("dg-request-id") || "",
       "dg-model-name": response.headers.get("dg-model-name") || model,
+      "dg-char-count": response.headers.get("dg-char-count") || "",
     },
   };
 }
