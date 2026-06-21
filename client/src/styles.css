@@ -1205,10 +1205,14 @@ input[type="range"] {
 }
 
 .fightcard-screen {
-  display: grid;
+  display: none;
   place-items: center;
   padding: clamp(16px, 4vw, 40px);
   background: linear-gradient(180deg, #176a73 0 52%, #47311e 52% 100%);
+}
+
+.fightcard-screen.is-active {
+  display: grid;
 }
 
 .fightcard-panel {
