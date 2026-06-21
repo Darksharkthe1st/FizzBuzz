@@ -358,8 +358,12 @@ function truncateForDisplay(value, limit) {
 async function createDeepgramToken() {
   const apiKey = process.env.DEEPGRAM_API_KEY;
   const enabled = process.env.USE_DEEPGRAM === "true" && Boolean(apiKey);
+  console.info(
+    `[voice] /api/voice/token requested; USE_DEEPGRAM=${process.env.USE_DEEPGRAM}; keyPresent=${Boolean(apiKey)}`,
+  );
 
   if (!enabled) {
+    console.info("[voice] Deepgram disabled or missing key; returning browser speech fallback.");
     return {
       status: 200,
       body: {
@@ -375,6 +379,7 @@ async function createDeepgramToken() {
 
   let response;
   try {
+    console.info("[voice] Requesting temporary Deepgram token from /v1/auth/grant.");
     response = await fetch("https://api.deepgram.com/v1/auth/grant", {
       method: "POST",
       headers: {
@@ -382,6 +387,7 @@ async function createDeepgramToken() {
       },
     });
   } catch {
+    console.error("[voice] Deepgram token request failed before receiving a response.");
     return {
       status: 200,
       body: {
@@ -400,6 +406,9 @@ async function createDeepgramToken() {
 
   if (!response.ok || !result.access_token) {
     const deepgramMessage = result.err_msg || result.error?.message || result.error;
+    console.error(
+      `[voice] Deepgram token request rejected; status=${response.status}; message=${deepgramMessage || "No Deepgram error body."}`,
+    );
     return {
       status: 200,
       body: {
@@ -416,6 +425,9 @@ async function createDeepgramToken() {
     };
   }
 
+  console.info(
+    `[voice] Deepgram token granted; expiresIn=${result.expires_in || 30}; returning Listen websocket config.`,
+  );
   return {
     status: 200,
     body: {

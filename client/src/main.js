@@ -95,6 +95,7 @@ function getRecorderMimeType() {
 async function startVoiceArgument() {
   if (state.voice.active || state.voice.processing) return;
 
+  console.info("[voice] Argue live clicked; requesting /api/voice/token.");
   setVoiceActive(true);
   state.voice.finalTranscript = "";
   state.voice.interimTranscript = "";
@@ -102,18 +103,27 @@ async function startVoiceArgument() {
 
   try {
     const token = await postJson("/api/voice/token", {});
+    console.info("[voice] Token endpoint response:", {
+      mode: token.mode,
+      hasToken: Boolean(token.token),
+      hasListenUrl: Boolean(token.listenUrl),
+      deepgramStatus: token.deepgramStatus,
+      message: token.message,
+    });
     if (token.mode === "deepgram" && token.token && token.listenUrl) {
       await startDeepgramVoice(token);
       return;
     }
     startBrowserSpeechFallback(token.message);
   } catch (error) {
+    console.error("[voice] /api/voice/token failed; using browser speech fallback.", error);
     startBrowserSpeechFallback(error.message);
   }
 }
 
 async function startDeepgramVoice(token) {
   state.voice.mode = "deepgram";
+  console.info("[voice] Starting Deepgram voice mode.");
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
       echoCancellation: true,
@@ -130,6 +140,7 @@ async function startDeepgramVoice(token) {
   state.voice.recorder = recorder;
 
   socket.addEventListener("open", () => {
+    console.info("[voice] Deepgram websocket open; starting MediaRecorder.");
     setVoiceUi("Deepgram is live. Start arguing before the roommate develops a new excuse.");
     recorder.start(250);
   });
@@ -140,6 +151,11 @@ async function startDeepgramVoice(token) {
 
     const transcript = data.channel?.alternatives?.[0]?.transcript?.trim() || "";
     if (!transcript) return;
+    console.debug("[voice] Deepgram transcript result:", {
+      isFinal: Boolean(data.is_final),
+      speechFinal: Boolean(data.speech_final),
+      transcript,
+    });
 
     if (data.is_final) {
       state.voice.finalTranscript = `${state.voice.finalTranscript} ${transcript}`.trim();
@@ -161,13 +177,15 @@ async function startDeepgramVoice(token) {
   });
 
   socket.addEventListener("close", () => {
+    console.warn("[voice] Deepgram websocket closed.");
     if (state.voice.active) {
       stopVoiceArgument(false);
       setVoiceUi("Deepgram left the hallway. Try the mic again.");
     }
   });
 
-  socket.addEventListener("error", () => {
+  socket.addEventListener("error", (event) => {
+    console.error("[voice] Deepgram websocket error; falling back to browser speech.", event);
     stopVoiceArgument(false);
     setVoiceUi("Deepgram tripped over the doormat. Browser captions can still take a swing.");
     startBrowserSpeechFallback();
@@ -181,8 +199,10 @@ async function startDeepgramVoice(token) {
 }
 
 function startBrowserSpeechFallback(reason = "") {
+  console.info("[voice] Starting browser speech fallback.", { reason });
   const SpeechRecognition = getSpeechRecognition();
   if (!SpeechRecognition) {
+    console.error("[voice] Browser speech fallback unavailable.");
     stopVoiceArgument(false);
     setVoiceUi(reason || "No Deepgram key and this browser does not expose speech captions.");
     return;
@@ -201,6 +221,7 @@ function startBrowserSpeechFallback(reason = "") {
       const transcript = event.results[index][0].transcript.trim();
       if (event.results[index].isFinal) {
         state.voice.finalTranscript = `${state.voice.finalTranscript} ${transcript}`.trim();
+        console.debug("[voice] Browser speech final transcript:", transcript);
       } else {
         interim = transcript;
       }
@@ -219,6 +240,7 @@ function startBrowserSpeechFallback(reason = "") {
   });
 
   recognizer.addEventListener("end", () => {
+    console.warn("[voice] Browser speech recognition ended.");
     if (state.voice.active && !state.voice.processing) {
       stopVoiceArgument(false);
       setVoiceUi("Mic stopped. The roommate is pretending that means they won.");
@@ -265,6 +287,7 @@ async function resolveLiveArgument(transcript) {
   const heard = String(transcript || "").trim();
   if (!heard || state.voice.processing) return;
 
+  console.info("[voice] Resolving live argument with transcript:", heard);
   state.voice.processing = true;
   stopVoiceArgument(false);
   setVoiceUi("Roommate heard you. Unfortunately, that made them more defensive.", heard);
