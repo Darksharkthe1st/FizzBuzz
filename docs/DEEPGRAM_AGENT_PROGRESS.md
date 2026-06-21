@@ -63,6 +63,7 @@ browser mic
 - Does the Deepgram Agent websocket accept the same bearer subprotocol auth path in-browser that Listen uses with temporary grants?
 - Can Agent mode emit enough transcript metadata for the current fight card confidence metric, or should confidence be shown as unavailable for Agent turns? Current implementation assumes unavailable.
 - Does the direct PCM browser pipeline feel good enough, or should we switch to Deepgram's Browser Agent SDK later?
+- The current direct-browser Agent prototype defaults to Deepgram's `google` LLM provider with `gemini-2.5-flash`. If `GEMINI_API_KEY` or `DEEPGRAM_AGENT_LLM_KEY` is present, it uses a BYO Google Gemini streaming endpoint. That is acceptable for local hackathon testing, but a production-safe version should proxy the Agent websocket from the backend instead of exposing provider settings to browser DevTools.
 
 ## Verification Log
 
@@ -74,3 +75,4 @@ browser mic
 - `npm run build` passed.
 - UI smoke test passed on `http://127.0.0.1:5175`: the setup screen renders `Battle style` with `Turn-style`, `Easy Agent`, `Medium Agent`, and `Hard Agent`.
 - Live microphone/Agent websocket verification is still pending real credentials and a spoken test.
+- Switched Agent thinking from `open_ai` to `google`/Gemini, defaulting to `gemini-2.5-flash` and using the existing Gemini key path.

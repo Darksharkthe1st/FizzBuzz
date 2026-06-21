@@ -1,172 +1,67 @@
 import "./styles.css";
+import { playAgentPcmChunk, resampleToLinear16, stopAgentAudio as stopAgentAudioOutput } from "./agentAudio.js";
+import { postJson } from "./api.js";
+import { dom } from "./dom.js";
+import { counters, excuses, makeAttackName, roommateTitles, shortTopic } from "./gameCopy.js";
+import { createInitialState } from "./state.js";
+import { getVoiceModel, resolveVoiceStyleId, voiceStyleBank } from "./voiceStyles.js";
 
-const prepScreen = document.querySelector("#prepScreen");
-const battleScreen = document.querySelector("#battleScreen");
-const prepForm = document.querySelector("#prepForm");
-const argumentInput = document.querySelector("#argumentInput");
-const evidenceInput = document.querySelector("#evidenceInput");
-const aggroInput = document.querySelector("#aggroInput");
-const roommatePhoto = document.querySelector("#roommatePhoto");
-const photoPreview = document.querySelector("#photoPreview");
-const photoEvidence = document.querySelector(".photo-evidence");
-const bossPhoto = document.querySelector("#bossPhoto");
-const bossPhotoWrap = document.querySelector(".roommate-avatar-wrap");
-const foreheadButton = document.querySelector("#foreheadButton");
-const foreheadStatus = document.querySelector("#foreheadStatus");
-const hallwaySet = document.querySelector("#hallwaySet");
-const doorButton = document.querySelector("#doorButton");
-const knockText = document.querySelector("#knockText");
-const speakButton = document.querySelector("#speakButton");
-const resetButton = document.querySelector("#resetButton");
-const subtitleLine = document.querySelector("#subtitleLine");
-const ttsStyleLabel = document.querySelector("#ttsStyleLabel");
-const voiceTranscript = document.querySelector("#voiceTranscript");
-const voiceStatus = document.querySelector("#voiceStatus");
-const voiceMeter = document.querySelector("#voiceMeter");
-const refereeModeBadge = document.querySelector("#refereeModeBadge");
-const refereeTurnState = document.querySelector("#refereeTurnState");
-const refereeConfidence = document.querySelector("#refereeConfidence");
-const refereeLatency = document.querySelector("#refereeLatency");
-const attackName = document.querySelector("#attackName");
-const attackCaption = document.querySelector("#attackCaption");
-const roundBadge = document.querySelector("#roundBadge");
-const bossTitle = document.querySelector("#bossTitle");
-const floorNote = document.querySelector("#floorNote");
-const playerHealth = document.querySelector("#playerHealth");
-const bossHealth = document.querySelector("#bossHealth");
-const conversationModeSelect = document.querySelector("#conversationModeSelect");
-const voiceStyleSelect = document.querySelector("#voiceStyleSelect");
-const previewVoiceButton = document.querySelector("#previewVoiceButton");
-const boundaryLabels = document.querySelector("#boundaryLabels");
-const analysisNote = document.querySelector("#analysisNote");
-const fightCardScreen = document.querySelector("#fightCardScreen");
-const fightCardBestLine = document.querySelector("#fightCardBestLine");
-const fightCardTurns = document.querySelector("#fightCardTurns");
-const fightCardConfidence = document.querySelector("#fightCardConfidence");
-const fightCardBoundary = document.querySelector("#fightCardBoundary");
-const fightCardDeflections = document.querySelector("#fightCardDeflections");
-const fightCardCoaching = document.querySelector("#fightCardCoaching");
-const copySummaryButton = document.querySelector("#copySummaryButton");
-const fightCardResetButton = document.querySelector("#fightCardResetButton");
-
-// Voice Casting (Tier 1 #4 remainder). Labels are performance styles, not
-// identity -- nothing here is inferred from the uploaded roommate photo,
-// per the plan's responsible-AI guardrail. Every model id was confirmed
-// live against /v1/speak on 2026-06-21 (200 + matching dg-model-name).
-const voiceStyleBank = {
-  deadpan: { model: "aura-2-arcas-en", label: "Deadpan" },
-  frantic: { model: "aura-2-zeus-en", label: "Frantic" },
-  smug: { model: "aura-2-orion-en", label: "Smug" },
-  "soft-spoken": { model: "aura-2-luna-en", label: "Soft-spoken" },
-  "theater-kid": { model: "aura-2-orpheus-en", label: "Theater kid" },
-  "deeply-inconvenienced": { model: "aura-2-thalia-en", label: "Deeply inconvenienced" },
-};
-const voiceStyleIds = Object.keys(voiceStyleBank);
-
-function resolveVoiceStyleId(selectedId) {
-  if (selectedId === "surprise") {
-    return voiceStyleIds[Math.floor(Math.random() * voiceStyleIds.length)];
-  }
-  return voiceStyleBank[selectedId] ? selectedId : "deeply-inconvenienced";
-}
+const {
+  prepScreen,
+  battleScreen,
+  prepForm,
+  argumentInput,
+  evidenceInput,
+  aggroInput,
+  roommatePhoto,
+  photoPreview,
+  photoEvidence,
+  bossPhoto,
+  bossPhotoWrap,
+  foreheadButton,
+  foreheadStatus,
+  hallwaySet,
+  doorButton,
+  knockText,
+  speakButton,
+  resetButton,
+  subtitleLine,
+  ttsStyleLabel,
+  voiceTranscript,
+  voiceStatus,
+  voiceMeter,
+  refereeModeBadge,
+  refereeTurnState,
+  refereeConfidence,
+  refereeLatency,
+  attackName,
+  attackCaption,
+  roundBadge,
+  bossTitle,
+  floorNote,
+  playerHealth,
+  bossHealth,
+  conversationModeSelect,
+  voiceStyleSelect,
+  previewVoiceButton,
+  boundaryLabels,
+  analysisNote,
+  fightCardScreen,
+  fightCardBestLine,
+  fightCardTurns,
+  fightCardConfidence,
+  fightCardBoundary,
+  fightCardDeflections,
+  fightCardCoaching,
+  copySummaryButton,
+  fightCardResetButton,
+} = dom;
 
 function getSelectedVoiceModel() {
-  return voiceStyleBank[state.voiceStyleId]?.model || "aura-2-thalia-en";
+  return getVoiceModel(state.voiceStyleId);
 }
 
-const state = {
-  argument: "",
-  sessionId: "",
-  roommateLine: "",
-  photoUrl: "",
-  photoDataUrl: "",
-  round: 1,
-  player: 100,
-  boss: 100,
-  knocked: false,
-  exchange: 0,
-  evidence: 4,
-  aggro: 3,
-  conversationMode: "turn-style",
-  voiceStyleId: "deeply-inconvenienced",
-  lastFightCard: null,
-  voice: {
-    active: false,
-    mode: "idle",
-    sttMode: "",
-    sttModel: "",
-    stream: null,
-    recorder: null,
-    socket: null,
-    recognizer: null,
-    finalTranscript: "",
-    interimTranscript: "",
-    processing: false,
-    // Latest numeric STT confidence seen this turn, sent to /api/argue so
-    // the server can fold it into the post-fight fight card's average --
-    // null whenever the active path isn't real Deepgram (browser fallback).
-    lastConfidence: null,
-    // Flux only: the turn_index of the last EndOfTurn that triggered an
-    // advanceBattle call, so a duplicate EndOfTurn for the same turn_index
-    // (Deepgram retry, etc.) doesn't double-advance the battle. -1 means no
-    // turn has advanced yet in this voice session.
-    lastAdvancedTurnIndex: -1,
-    // Referee panel latency readout. micStartAt/firstTranscriptAt cover
-    // "mic to first transcript" once per voice session. endOfTurnAt +
-    // endOfTurnPending cover "end of turn to roommate response" per turn --
-    // pending is cleared the moment a response actually starts playing, so
-    // a line spoken with no preceding EndOfTurn (the door-opener) doesn't
-    // get measured against a stale timestamp.
-    timing: {
-      micStartAt: 0,
-      firstTranscriptAt: 0,
-      endOfTurnAt: 0,
-      endOfTurnPending: false,
-    },
-  },
-  tts: {
-    audio: null,
-    objectUrl: "",
-    speaking: false,
-    // Resolve callback for the in-flight "wait until the roommate finishes
-    // talking" promise, if any -- stopRoommateSpeech() calls this so a
-    // forced interruption (barge-in) doesn't leave that promise hanging
-    // forever.
-    resolveSpeaking: null,
-  },
-  agent: {
-    audioContext: null,
-    source: null,
-    processor: null,
-    outputCursor: 0,
-    outputSources: new Set(),
-    playing: false,
-    lastUserText: "",
-    lastAssistantText: "",
-    scoring: false,
-    keepAliveTimer: 0,
-  },
-};
-
-async function postJson(path, payload) {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    const details = await response.json().catch(() => ({}));
-    console.error("[api] JSON request failed.", {
-      path,
-      status: response.status,
-      details,
-    });
-    throw new Error(details.error || details.message || `Request failed: ${response.status}`);
-  }
-  return response.json();
-}
+const state = createInitialState();
 
 function setVoiceUi(status, transcript = "") {
   voiceStatus.textContent = status;
@@ -250,68 +145,8 @@ function getRecorderMimeType() {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
-function floatToLinear16(floatSamples) {
-  const output = new Int16Array(floatSamples.length);
-  for (let index = 0; index < floatSamples.length; index += 1) {
-    const sample = Math.max(-1, Math.min(1, floatSamples[index]));
-    output[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-  }
-  return output.buffer;
-}
-
-function resampleToLinear16(input, inputSampleRate, outputSampleRate = 24000) {
-  if (inputSampleRate === outputSampleRate) {
-    return floatToLinear16(input);
-  }
-
-  const ratio = inputSampleRate / outputSampleRate;
-  const outputLength = Math.max(1, Math.floor(input.length / ratio));
-  const output = new Float32Array(outputLength);
-  for (let index = 0; index < outputLength; index += 1) {
-    output[index] = input[Math.min(input.length - 1, Math.floor(index * ratio))];
-  }
-  return floatToLinear16(output);
-}
-
-function playAgentPcmChunk(arrayBuffer, sampleRate = 24000) {
-  const context = state.agent.audioContext;
-  if (!context || !arrayBuffer?.byteLength) return;
-
-  const pcm = new Int16Array(arrayBuffer);
-  if (!pcm.length) return;
-
-  const audioBuffer = context.createBuffer(1, pcm.length, sampleRate);
-  const channel = audioBuffer.getChannelData(0);
-  for (let index = 0; index < pcm.length; index += 1) {
-    channel[index] = pcm[index] / 0x8000;
-  }
-
-  const source = context.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(context.destination);
-
-  const startAt = Math.max(context.currentTime + 0.02, state.agent.outputCursor || 0);
-  state.agent.outputCursor = startAt + audioBuffer.duration;
-  state.agent.outputSources.add(source);
-  state.agent.playing = true;
-  source.addEventListener("ended", () => {
-    state.agent.outputSources.delete(source);
-    state.agent.playing = state.agent.outputSources.size > 0;
-  });
-  source.start(startAt);
-}
-
 function stopAgentAudio() {
-  for (const source of state.agent.outputSources) {
-    try {
-      source.stop();
-    } catch {
-      // Source already stopped.
-    }
-  }
-  state.agent.outputSources.clear();
-  state.agent.outputCursor = state.agent.audioContext?.currentTime || 0;
-  state.agent.playing = false;
+  stopAgentAudioOutput(state.agent);
 }
 
 function cleanupAgentVoice(socket = state.voice.socket, stream = state.voice.stream) {
@@ -648,12 +483,12 @@ async function startDeepgramAgentVoice(agent) {
 
     if (event.data instanceof ArrayBuffer) {
       markRoommateResponseStart();
-      playAgentPcmChunk(event.data, agent.settings?.audio?.output?.sample_rate || 24000);
+      playAgentPcmChunk(state.agent, event.data, agent.settings?.audio?.output?.sample_rate || 24000);
       return;
     }
     if (event.data instanceof Blob) {
       markRoommateResponseStart();
-      playAgentPcmChunk(await event.data.arrayBuffer(), agent.settings?.audio?.output?.sample_rate || 24000);
+      playAgentPcmChunk(state.agent, await event.data.arrayBuffer(), agent.settings?.audio?.output?.sample_rate || 24000);
       return;
     }
 
@@ -782,8 +617,9 @@ function handleAgentMessage(data, socket, stream, agent) {
   }
 
   if (data.type === "Error") {
-    console.error("[agent] Agent error.", data);
-    setVoiceUi(data.description || "Deepgram Agent reported an error.");
+    const message = data.description || data.message || data.reason || data.error || "Deepgram Agent reported an error.";
+    console.error("[agent] Agent error.", JSON.stringify(data, null, 2));
+    setVoiceUi(message);
     return;
   }
 
@@ -1198,66 +1034,6 @@ function readFileAsDataUrl(file) {
     reader.addEventListener("error", () => rejectFile(new Error("Could not read image")));
     reader.readAsDataURL(file);
   });
-}
-
-const roommateTitles = [
-  "The Deflection Engine",
-  "Lord of the Unwashed Pan",
-  "Baron Von Not My Problem",
-  "The Carbonation Witness",
-  "Duke of Suddenly Busy",
-];
-
-const excuses = [
-  "I was actually about to clean that, but then the vibe in the kitchen changed.",
-  "Technically, the mess became communal when everyone noticed it.",
-  "I feel like focusing on the Coke can ignores the freezer's role in this.",
-  "Can we not weaponize evidence while I am holding cereal?",
-  "I did not leave it there. I simply stopped moving it somewhere else.",
-  "This sounds like landlord energy, and I need everyone to sit with that.",
-];
-
-const counters = [
-  {
-    name: "Receipt Slam",
-    line: "I am describing one specific mess, one specific cleanup, and one specific person who fled the scene.",
-  },
-  {
-    name: "Calm Boundary Uppercut",
-    line: "I am not asking for a confession monologue. I am asking you to clean your part today.",
-  },
-  {
-    name: "Shared Space Suplex",
-    line: "The kitchen is shared, which means the consequences are shared after the responsibility is handled.",
-  },
-  {
-    name: "Lease Clause Elbow Drop",
-    line: "We can be chill after the sticky floor stops crunching under my socks.",
-  },
-];
-
-function shortTopic(text, limit = 70) {
-  const fallback = "the exploded Coke incident";
-  const cleaned = text.trim().replace(/\s+/g, " ");
-  if (!cleaned) return fallback;
-  return cleaned.length > limit ? `${cleaned.slice(0, Math.max(0, limit - 3))}...` : cleaned;
-}
-
-function makeAttackName(text) {
-  const topic = shortTopic(text).toLowerCase();
-  if (topic.includes("coke") || topic.includes("cola") || topic.includes("freezer")) {
-    return "Carbonation Cross-Examination";
-  }
-  if (topic.includes("dish") || topic.includes("sink") || topic.includes("pan")) {
-    return "Dish Pile Haymaker";
-  }
-  if (topic.includes("shower") || topic.includes("smell")) {
-    return "Fresh Air Finisher";
-  }
-  if (topic.includes("trash") || topic.includes("garbage")) {
-    return "Trash Bag Takedown";
-  }
-  return "Respectful Boundary Jab";
 }
 
 function setHealth() {
