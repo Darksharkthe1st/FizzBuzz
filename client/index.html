@@ -122,11 +122,21 @@
                 <span class="referee-confidence" id="refereeConfidence"></span>
               </div>
               <div class="voice-meter" aria-hidden="true"><b id="voiceMeter"></b></div>
+              <div class="composure-status" aria-label="Your composure hit points">
+                <div class="composure-copy">
+                  <span>Your composure</span>
+                  <strong id="composureValue">100 HP</strong>
+                </div>
+                <div class="composure-meter">
+                  <b id="playerHealth"></b>
+                </div>
+              </div>
               <p id="voiceStatus">Deepgram has not entered the hallway yet.</p>
               <p class="referee-latency" id="refereeLatency"></p>
             </div>
 
             <div class="door-zone" id="doorZone">
+              <div class="turn-stamp" id="turnStamp" aria-live="polite"></div>
               <div class="roommate-avatar-wrap">
                 <video id="roommateVideo" autoplay loop muted playsinline></video>
                 <img id="bossPhoto" alt="Distorted roommate boss" />
@@ -149,7 +159,6 @@
           </div>
 
           <div hidden aria-hidden="true" id="hiddenState">
-            <b id="playerHealth"></b>
             <b id="bossHealth"></b>
             <strong id="attackName">Respectful Boundary Jab</strong>
             <p id="attackCaption">A calm sentence with terrifying eye contact.</p>

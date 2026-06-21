@@ -34,6 +34,8 @@ const {
   refereeTurnState,
   refereeConfidence,
   refereeLatency,
+  composureValue,
+  turnStamp,
   attackName,
   attackCaption,
   roundBadge,
@@ -66,6 +68,7 @@ function getSelectedVoiceModel() {
 }
 
 const state = createInitialState();
+let turnStampTimer = 0;
 
 function setVoiceUi(status, transcript = "") {
   voiceStatus.textContent = status;
@@ -1092,8 +1095,45 @@ function readFileAsDataUrl(file) {
 }
 
 function setHealth() {
-  playerHealth.style.width = `${Math.max(0, state.player)}%`;
-  bossHealth.style.width = `${Math.max(0, state.boss)}%`;
+  const player = Math.max(0, Math.min(100, state.player));
+  const boss = Math.max(0, Math.min(100, state.boss));
+  playerHealth.style.width = `${player}%`;
+  composureValue.textContent = `${Math.round(player)} HP`;
+  playerHealth.parentElement.classList.toggle("is-rattled", player <= 45);
+  bossHealth.style.width = `${boss}%`;
+}
+
+function buildTurnStamp(result) {
+  const score = result?.boundary?.score ?? 0;
+  const labels = result?.boundary?.labels || [];
+  const hasPenalty = labels.some((label) => label.penalty);
+  if (result?.complete) return { text: "Case closed", tone: "good" };
+  if (hasPenalty || result?.analysis?.sentimentLabel === "heated") {
+    return { text: "Heat check", tone: "warning" };
+  }
+  if (score >= 16) return { text: "Boundary combo", tone: "good" };
+  if (score >= 8) return { text: "Clear ask +8", tone: "good" };
+  if (result?.analysis?.intentLabel === "requesting_cleanup") {
+    return { text: "Actionable ask", tone: "good" };
+  }
+  return { text: "Vague but valid", tone: "neutral" };
+}
+
+function showTurnStamp(result) {
+  const stamp = buildTurnStamp(result);
+  window.clearTimeout(turnStampTimer);
+  turnStamp.className = `turn-stamp is-visible is-${stamp.tone}`;
+  turnStamp.textContent = stamp.text;
+  turnStampTimer = window.setTimeout(() => {
+    turnStamp.className = "turn-stamp";
+    turnStamp.textContent = "";
+  }, 1800);
+}
+
+function clearTurnStamp() {
+  window.clearTimeout(turnStampTimer);
+  turnStamp.className = "turn-stamp";
+  turnStamp.textContent = "";
 }
 
 function updateBattleCopy() {
@@ -1201,7 +1241,9 @@ function buildDemoSummary(fightCard) {
     `Aura voiced the roommate, and the boundary meter scored my delivery over ${fightCard.turns} turns`,
     `(avg boundary clarity ${fightCard.avgBoundary}, avg transcript confidence ${formatPercent(fightCard.avgConfidence)}).`,
     `Best line: "${fightCard.bestLine}"`,
-  ].join(" ");
+    fightCard.feedback?.changeNext ? `Next change: ${fightCard.feedback.changeNext}` : "",
+    fightCard.feedback?.didWell ? `What worked: ${fightCard.feedback.didWell}` : "",
+  ].filter(Boolean).join(" ");
 }
 
 copySummaryButton.addEventListener("click", async () => {
@@ -1323,12 +1365,14 @@ prepForm.addEventListener("submit", async (event) => {
   state.boss = 100;
   state.exchange = 0;
   state.knocked = false;
+  state.lastFightCard = null;
   stopVoiceArgument(false);
   stopRoommateSpeech();
   resetRefereePanel();
   renderBoundaryLabels(null);
   renderSentimentDuel(null);
   renderAnalysisNote(null);
+  clearTurnStamp();
   setVoiceUi("Mic is holstered until the door opens.", "Door closed. Grievance pending.");
   hallwaySet.classList.remove("is-open", "is-knocking");
   doorButton.disabled = false;
@@ -1457,6 +1501,7 @@ async function advanceBattle(transcript = "") {
       renderBoundaryLabels(next.boundary);
       renderSentimentDuel(next.sentimentDuel);
       renderAnalysisNote(next.analysis);
+      showTurnStamp(next);
       // Fire the TTS request now (so playback starts as soon as it's ready)
       // but keep the rest of this turn's UI updates synchronous/instant --
       // only the function's return (and therefore resolveLiveArgument's
@@ -1488,6 +1533,7 @@ async function advanceBattle(transcript = "") {
   renderBoundaryLabels(null);
   renderSentimentDuel(null);
   renderAnalysisNote(null);
+  clearTurnStamp();
   const counter = counters[state.exchange % counters.length];
   const excuse = excuses[(state.exchange + state.aggro) % excuses.length];
   const damage = 10 + state.evidence * 3;
@@ -1526,9 +1572,11 @@ resetButton.addEventListener("click", () => {
   renderBoundaryLabels(null);
   renderSentimentDuel(null);
   renderAnalysisNote(null);
+  clearTurnStamp();
   speakButton.textContent = "Argue live";
   state.sessionId = "";
   state.roommateLine = "";
+  state.lastFightCard = null;
   setVoiceUi("Mic is holstered until the door opens.", "New grievance, new hallway.");
   showScreen("prep");
   window.scrollTo({ top: 0, behavior: "smooth" });

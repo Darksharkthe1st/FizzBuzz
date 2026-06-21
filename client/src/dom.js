@@ -26,6 +26,8 @@ export const dom = {
   refereeTurnState: document.querySelector("#refereeTurnState"),
   refereeConfidence: document.querySelector("#refereeConfidence"),
   refereeLatency: document.querySelector("#refereeLatency"),
+  composureValue: document.querySelector("#composureValue"),
+  turnStamp: document.querySelector("#turnStamp"),
   attackName: document.querySelector("#attackName"),
   attackCaption: document.querySelector("#attackCaption"),
   roundBadge: document.querySelector("#roundBadge"),

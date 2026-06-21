@@ -106,6 +106,14 @@ function buildFightCard(session) {
     : 0;
   const best = turns.reduce((best, turn) => (!best || turn.boundaryScore > best.boundaryScore ? turn : best), null);
   const heatedCount = turns.filter((turn) => turn.sentimentLabel === "heated").length;
+  const transcriptTurns = turns.map((turn) => ({
+    round: turn.round,
+    user: turn.transcript || turn.heard || "",
+    roommate: turn.roommateLine || "",
+    boundaryScore: turn.boundaryScore,
+    sentimentLabel: turn.sentimentLabel,
+  }));
+  const feedback = buildInteractionFeedback(transcriptTurns, { avgBoundary, heatedCount });
 
   let coachingNote = "You stayed steady. A few more specific asks would have ended this even faster.";
   if (avgBoundary >= 10) {
@@ -120,7 +128,49 @@ function buildFightCard(session) {
     avgConfidence,
     avgBoundary,
     deflectionsResisted: turns.length,
-    coachingNote,
+    coachingNote: feedback.note || coachingNote,
+    feedback,
+    transcriptTurns,
+  };
+}
+
+function buildInteractionFeedback(transcriptTurns, { avgBoundary, heatedCount }) {
+  if (!transcriptTurns.length) {
+    return {
+      note: "No usable transcript made it onto the card. Next run, give the referee one clear sentence to judge.",
+      didWell: "You got through the door.",
+      changeNext: "Say one concrete ask out loud.",
+    };
+  }
+
+  const said = transcriptTurns.map((turn) => turn.user).join(" ").toLowerCase();
+  const askedForAction = /\b(clean|fix|pay|replace|stop|move|handle|take|wash|throw|wipe)\b/.test(said);
+  const ownedBoundary = /\b(i need|i want|i won't|i will not|not okay|going forward|next time)\b/.test(said);
+  const specificRequestCount = transcriptTurns.filter((turn) => turn.boundaryScore >= 10).length;
+
+  let didWell = "You kept the interaction moving and gave the fight card enough transcript to judge.";
+  if (specificRequestCount >= Math.max(1, Math.ceil(transcriptTurns.length / 2))) {
+    didWell = "You repeatedly gave specific, judgeable asks instead of getting pulled into the roommate's fog machine.";
+  } else if (ownedBoundary) {
+    didWell = "You framed the problem around your boundary, which is stronger than debating the entire apartment history.";
+  }
+
+  let changeNext = "Name the exact repair, owner, and deadline in one sentence.";
+  if (!askedForAction) {
+    changeNext = "Add a concrete action request: what they need to clean, replace, stop, or pay for.";
+  } else if (!ownedBoundary) {
+    changeNext = "Make the boundary explicit with language like \"I need\" or \"going forward\" before the debate wanders.";
+  } else if (heatedCount > transcriptTurns.length / 2) {
+    changeNext = "Keep the same ask, but lower the heat so the boundary lands harder than the frustration.";
+  } else if (avgBoundary >= 10) {
+    changeNext = "You are close. Tighten the deadline so the win condition is impossible to dodge.";
+  }
+
+  const note = `How you did: ${didWell} What to change: ${changeNext}`;
+  return {
+    note,
+    didWell,
+    changeNext,
   };
 }
 
@@ -231,7 +281,7 @@ export function createGameService() {
     };
   }
 
-  async function scoreArgumentTurn(session, transcript = "", confidence) {
+  async function scoreArgumentTurn(session, transcript = "", confidence, options = {}) {
     const boundary = scoreBoundary(transcript, session.argument);
     const analysis = await analyzeTranscript(session, transcript);
 
@@ -245,10 +295,13 @@ export function createGameService() {
     session.player = Math.max(0, session.player - recoil);
 
     const heard = truncateForDisplay(transcript, 180);
+    const transcriptForCard = truncateForDisplay(transcript, 500);
     const sentimentDuel = buildSentimentDuel(session, analysis, boundary);
     session.turnLog.push({
       round: session.round,
       heard,
+      transcript: transcriptForCard,
+      roommateLine: truncateForDisplay(options.roommateLine, 500),
       confidence: typeof confidence === "number" ? confidence : null,
       boundaryScore: boundary.score,
       sentimentLabel: analysis?.sentimentLabel || null,
@@ -291,7 +344,9 @@ export function createGameService() {
 
     const defensive =
       (await generateGeminiArgumentTurn(session, transcript)) || chooseDefensiveResponse(session, transcript);
-    const result = await scoreArgumentTurn(session, transcript, confidence);
+    const result = await scoreArgumentTurn(session, transcript, confidence, {
+      roommateLine: defensive.roommateLine,
+    });
     return {
       ...result,
       attack: defensive.attack,
