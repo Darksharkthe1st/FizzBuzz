@@ -570,9 +570,14 @@ input[type="range"] {
   animation: knockShake 780ms ease-in-out;
 }
 
-.hallway-set.is-open .door {
+.hallway-set.is-opening .door {
   animation: doorOpen 900ms ease-in forwards;
 }
+
+.hallway-set.is-open .door {
+  opacity: 0;
+}
+
 
 .boss-side {
   transform: translateX(35px) scale(0.8);

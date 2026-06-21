@@ -257,11 +257,15 @@ doorButton.addEventListener("click", () => {
 
   window.setTimeout(() => {
     hallwaySet.classList.remove("is-knocking");
-    hallwaySet.classList.add("is-open");
+    hallwaySet.classList.add("is-opening");
     knockText.textContent = "Opened";
     subtitleLine.textContent = `"${state.roommateLine || `What? I was literally about to deal with ${shortTopic(state.argument)}.`}"`;
     speakButton.disabled = false;
   }, 900);
+  window.setTimeout(() => {
+    hallwaySet.classList.remove("is-opening");
+    hallwaySet.classList.add("is-open");
+  }, 1900);
 });
 
 speakButton.addEventListener("click", async () => {
