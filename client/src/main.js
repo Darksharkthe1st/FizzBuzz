@@ -1,3 +1,5 @@
+import "./styles.css";
+
 const prepScreen = document.querySelector("#prepScreen");
 const battleScreen = document.querySelector("#battleScreen");
 const prepForm = document.querySelector("#prepForm");
@@ -9,6 +11,8 @@ const photoPreview = document.querySelector("#photoPreview");
 const photoEvidence = document.querySelector(".photo-evidence");
 const bossPhoto = document.querySelector("#bossPhoto");
 const bossPhotoWrap = document.querySelector(".roommate-avatar-wrap");
+const foreheadButton = document.querySelector("#foreheadButton");
+const foreheadStatus = document.querySelector("#foreheadStatus");
 const hallwaySet = document.querySelector("#hallwaySet");
 const doorButton = document.querySelector("#doorButton");
 const knockText = document.querySelector("#knockText");
@@ -28,6 +32,7 @@ const state = {
   sessionId: "",
   roommateLine: "",
   photoUrl: "",
+  photoDataUrl: "",
   round: 1,
   player: 100,
   boss: 100,
@@ -46,9 +51,19 @@ async function postJson(path, payload) {
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    const details = await response.json().catch(() => ({}));
+    throw new Error(details.error || details.message || `Request failed: ${response.status}`);
   }
   return response.json();
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolveFile, rejectFile) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolveFile(String(reader.result || "")));
+    reader.addEventListener("error", () => rejectFile(new Error("Could not read image")));
+    reader.readAsDataURL(file);
+  });
 }
 
 const roommateTitles = [
@@ -149,15 +164,54 @@ function showScreen(screen) {
   window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
 }
 
-roommatePhoto.addEventListener("change", () => {
+roommatePhoto.addEventListener("change", async () => {
   const file = roommatePhoto.files?.[0];
   if (!file) return;
   if (state.photoUrl) URL.revokeObjectURL(state.photoUrl);
   state.photoUrl = URL.createObjectURL(file);
+  state.photoDataUrl = "";
   photoPreview.src = state.photoUrl;
   bossPhoto.src = state.photoUrl;
   photoEvidence.classList.add("has-image");
   bossPhotoWrap.classList.add("has-image");
+  foreheadButton.disabled = true;
+  foreheadStatus.textContent = "Loading this face into the wide-angle accusation chamber...";
+
+  try {
+    state.photoDataUrl = await readFileAsDataUrl(file);
+    foreheadButton.disabled = false;
+    foreheadStatus.textContent = "Ready for forehead inflation. This is legally not a flattering lens.";
+  } catch {
+    foreheadStatus.textContent = "The image refused to become evidence. Try a smaller photo.";
+  }
+});
+
+foreheadButton.addEventListener("click", async () => {
+  if (!state.photoDataUrl) return;
+  foreheadButton.disabled = true;
+  foreheadButton.textContent = "Inflating...";
+  foreheadStatus.textContent = "Asking Nano Banana to weaponize camera angle, gently.";
+
+  try {
+    const generated = await postJson("/api/media/forehead", {
+      imageDataUrl: state.photoDataUrl,
+      argument: argumentInput.value,
+    });
+
+    if (generated.imageUrl) {
+      state.photoDataUrl = generated.imageUrl;
+      photoPreview.src = generated.imageUrl;
+      bossPhoto.src = generated.imageUrl;
+      foreheadStatus.textContent = "Forehead mode applied. Accountability now has forced perspective.";
+    } else {
+      foreheadStatus.textContent = generated.message || "Forehead mode is ready, but needs an API key.";
+    }
+  } catch (error) {
+    foreheadStatus.textContent = error.message || "Forehead inflation failed. The normal photo remains armed.";
+  } finally {
+    foreheadButton.disabled = false;
+    foreheadButton.textContent = "Inflate forehead evidence";
+  }
 });
 
 prepForm.addEventListener("submit", async (event) => {

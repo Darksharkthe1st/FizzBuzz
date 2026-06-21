@@ -8,22 +8,43 @@ Run
 ---
 
 ```bash
+npm install
 npm run dev
 ```
 
-Open http://127.0.0.1:5175.
+Open the URL printed by the dev server. It starts at `http://127.0.0.1:5175`, but if that
+port is already busy it will try the next port.
 
-Backend
--------
+Project setup
+-------------
 
-The backend is a dependency-free Node server in `server/index.js`.
+FizzBuzz is now an Express + Vite app:
 
-Routes:
+- `server/index.js` - Express API server, `.env` loading, Gemini image-generation hook.
+- `client/index.html` - Vite HTML entry.
+- `client/src/main.js` - frontend interaction logic.
+- `client/src/styles.css` - game UI styling.
+- `vite.config.js` - Vite build config, outputting production assets to `dist/client`.
+
+`npm run dev` runs the Express backend and mounts Vite as dev middleware, so the frontend
+and `/api/*` routes share the same origin.
+
+API routes
+----------
 
 - `GET /api/health` - service status and integration flags.
 - `POST /api/session` - creates a confrontation session from `argument`, `evidence`, and `aggro`.
 - `POST /api/argue` - advances the boss battle for a `sessionId`.
+- `POST /api/media/forehead` - turns an uploaded face into a wide-angle forehead boss portrait.
 - `POST /api/voice/token` - placeholder for Deepgram token minting.
 - `POST /api/media/avatar` - placeholder for Pika avatar/video generation.
 
-Copy `.env.example` to `.env` when adding real keys for OpenAI, Deepgram, or Pika.
+Copy `.env.example` to `.env` when adding real keys.
+
+Forehead mode uses Google's Nano Banana image API. It stays in mock mode until both of these
+are set:
+
+```bash
+GEMINI_API_KEY=your_key_here
+USE_GEMINI_IMAGE=true
+```

@@ -1,33 +1,21 @@
-import { createServer } from "node:http";
+import express from "express";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { extname, join, normalize, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const rootDir = resolve(__dirname, "..");
-const publicDir = rootDir;
+const clientDir = join(rootDir, "client");
+const distClientDir = join(rootDir, "dist", "client");
 
 await loadDotEnv(join(rootDir, ".env"));
 
 const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 5175);
+const isProduction = process.env.NODE_ENV === "production";
 
 const sessions = new Map();
-
-const contentTypes = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-};
-
-const publicFiles = new Set(["index.html", "styles.css", "script.js", "favicon.ico"]);
 
 const titleBank = [
   "The Deflection Engine",
@@ -84,38 +72,21 @@ async function loadDotEnv(filePath) {
   }
 }
 
-function sendJson(response, status, payload) {
-  const body = JSON.stringify(payload);
-  response.writeHead(status, {
-    "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store",
-  });
-  response.end(body);
-}
+function parseDataUrl(value) {
+  const text = String(value || "");
+  const commaIndex = text.indexOf(",");
+  if (commaIndex === -1) return null;
 
-function readRequestJson(request) {
-  return new Promise((resolveBody, rejectBody) => {
-    let body = "";
-    request.on("data", (chunk) => {
-      body += chunk;
-      if (body.length > 1_000_000) {
-        rejectBody(new Error("Request body too large"));
-        request.destroy();
-      }
-    });
-    request.on("end", () => {
-      if (!body) {
-        resolveBody({});
-        return;
-      }
-      try {
-        resolveBody(JSON.parse(body));
-      } catch {
-        rejectBody(new Error("Invalid JSON"));
-      }
-    });
-    request.on("error", rejectBody);
-  });
+  const metadata = text.slice(0, commaIndex).toLowerCase();
+  const data = text.slice(commaIndex + 1).replace(/\s/g, "");
+  if (!metadata.startsWith("data:image/") || !metadata.includes(";base64") || !data) {
+    return null;
+  }
+
+  return {
+    mimeType: metadata.slice("data:".length, metadata.indexOf(";")),
+    data,
+  };
 }
 
 function shortTopic(argument, limit = 70) {
@@ -176,6 +147,114 @@ function createSession(payload) {
   };
 }
 
+function createForeheadPrompt(argument) {
+  return [
+    "Edit the uploaded photo into a funny boss-battle portrait for a roommate argument game.",
+    "Keep the same person's identity, expression cues, hair, and recognizable facial features.",
+    "Make it look like the picture was taken from a very close camera angle above their face, so their forehead looks comically massive while the rest of the face shrinks below it.",
+    "Use a wide-angle selfie lens feel, exaggerated forced perspective, crisp lighting, and a square close-up crop.",
+    "Make it silly and theatrical, not mean-spirited, violent, scary, or realistic evidence.",
+    `Argument context for comedic mood: ${shortTopic(argument)}.`,
+  ].join(" ");
+}
+
+async function generateForeheadPortrait(payload) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const image = parseDataUrl(payload.imageDataUrl);
+  const prompt = createForeheadPrompt(payload.argument);
+
+  if (!image) {
+    return {
+      status: 400,
+      body: {
+        error:
+          "The forehead endpoint did not receive a valid image. Re-upload the roommate photo, wait for the forehead button to unlock, then try again.",
+      },
+    };
+  }
+
+  if (process.env.USE_GEMINI_IMAGE !== "true" || !apiKey) {
+    return {
+      status: 202,
+      body: {
+        mode: "mock",
+        imageUrl: null,
+        prompt,
+        message:
+          "Forehead mode is ready. Add GEMINI_API_KEY and set USE_GEMINI_IMAGE=true to spend real image-generation credits.",
+      },
+    };
+  }
+
+  const response = await fetch(
+    "https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-image:generateContent",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              {
+                inline_data: {
+                  mime_type: image.mimeType,
+                  data: image.data,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"],
+          responseFormat: {
+            image: {
+              aspectRatio: "1:1",
+              imageSize: "1K",
+            },
+          },
+        },
+      }),
+    },
+  );
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      status: response.status,
+      body: {
+        error: result.error?.message || "Gemini image generation failed.",
+      },
+    };
+  }
+
+  const parts = result.candidates?.[0]?.content?.parts || [];
+  const generated = parts.find((part) => part.inlineData || part.inline_data);
+  const inlineData = generated?.inlineData || generated?.inline_data;
+
+  if (!inlineData?.data) {
+    return {
+      status: 502,
+      body: {
+        error: "Gemini responded without an image.",
+      },
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      mode: "gemini",
+      imageUrl: `data:${inlineData.mimeType || inlineData.mime_type || "image/png"};base64,${inlineData.data}`,
+      prompt,
+    },
+  };
+}
+
 function advanceArgument(sessionId) {
   const session = sessions.get(sessionId);
   if (!session) {
@@ -212,133 +291,115 @@ function clampNumber(value, min, max, fallback) {
   return Math.min(max, Math.max(min, number));
 }
 
-async function routeApi(request, response, url) {
-  if (request.method === "GET" && url.pathname === "/api/health") {
-    sendJson(response, 200, {
+function createApp() {
+  const app = express();
+
+  app.use("/api", express.json({ limit: "12mb" }));
+  app.use("/api", (error, request, response, next) => {
+    if (!error) {
+      next();
+      return;
+    }
+    response.status(error.status || 400).json({
+      error:
+        error.type === "entity.too.large"
+          ? "That image is too large for forehead mode. Try a smaller or cropped face photo."
+          : "The request body was not valid JSON.",
+    });
+  });
+
+  app.get("/api/health", (request, response) => {
+    response.json({
       ok: true,
       service: "fizzbuzz-backend",
+      frontend: isProduction ? "static-dist" : "vite-dev-middleware",
       integrations: {
         openai: process.env.USE_OPENAI === "true",
+        geminiImage: process.env.USE_GEMINI_IMAGE === "true" && Boolean(process.env.GEMINI_API_KEY),
         deepgram: process.env.USE_DEEPGRAM === "true",
         pika: process.env.USE_PIKA === "true",
       },
     });
-    return;
-  }
+  });
 
-  if (request.method === "POST" && url.pathname === "/api/session") {
-    const payload = await readRequestJson(request);
-    sendJson(response, 201, createSession(payload));
-    return;
-  }
+  app.post("/api/session", (request, response) => {
+    response.status(201).json(createSession(request.body || {}));
+  });
 
-  if (request.method === "POST" && url.pathname === "/api/argue") {
-    const payload = await readRequestJson(request);
-    const next = advanceArgument(payload.sessionId);
+  app.post("/api/argue", (request, response) => {
+    const next = advanceArgument(request.body?.sessionId);
     if (!next) {
-      sendJson(response, 404, { error: "Unknown confrontation session" });
+      response.status(404).json({ error: "Unknown confrontation session" });
       return;
     }
-    sendJson(response, 200, next);
-    return;
-  }
+    response.json(next);
+  });
 
-  if (request.method === "POST" && url.pathname === "/api/voice/token") {
-    sendJson(response, 200, {
+  app.post("/api/voice/token", (request, response) => {
+    response.json({
       mode: process.env.USE_DEEPGRAM === "true" ? "deepgram" : "mock",
       token: null,
       message: "Deepgram token minting hook is ready. Add DEEPGRAM_API_KEY and implement server-side token creation here.",
     });
-    return;
-  }
+  });
 
-  if (request.method === "POST" && url.pathname === "/api/media/avatar") {
-    const payload = await readRequestJson(request);
-    sendJson(response, 202, {
+  app.post("/api/media/avatar", (request, response) => {
+    response.status(202).json({
       mode: process.env.USE_PIKA === "true" ? "pika" : "mock",
       jobId: randomUUID(),
-      prompt: `0.5 zoom meme yapping roommate, boss battle intro, situation: ${shortTopic(payload.argument)}`,
+      prompt: `0.5 zoom meme yapping roommate, boss battle intro, situation: ${shortTopic(request.body?.argument)}`,
       status: "queued",
       message: "Pika job hook is ready. Wire this endpoint to the Pika API when credentials are available.",
     });
-    return;
-  }
-
-  sendJson(response, 404, { error: "API route not found" });
-}
-
-async function serveStatic(url, response) {
-  const rawPath = url.pathname === "/" ? "/index.html" : url.pathname;
-  const safePath = normalize(decodeURIComponent(rawPath))
-    .replace(/^[/\\]+/, "")
-    .replace(/^(\.\.[/\\])+/, "");
-
-  if (!publicFiles.has(safePath)) {
-    response.writeHead(404, {
-      "content-type": "text/plain; charset=utf-8",
-      "cache-control": "no-store",
-    });
-    response.end("Not found");
-    return;
-  }
-
-  const filePath = resolve(join(publicDir, safePath));
-
-  if (!filePath.startsWith(publicDir)) {
-    response.writeHead(403);
-    response.end("Forbidden");
-    return;
-  }
-
-  try {
-    const data = await readFile(filePath);
-    response.writeHead(200, {
-      "content-type": contentTypes[extname(filePath).toLowerCase()] || "application/octet-stream",
-      "cache-control": "no-store",
-    });
-    response.end(data);
-  } catch {
-    const fallback = await readFile(join(publicDir, "index.html"));
-    response.writeHead(200, {
-      "content-type": "text/html; charset=utf-8",
-      "cache-control": "no-store",
-    });
-    response.end(fallback);
-  }
-}
-
-function createAppServer() {
-  return createServer(async (request, response) => {
-    try {
-      const url = new URL(request.url || "/", `http://${request.headers.host || `${host}:${port}`}`);
-      if (url.pathname.startsWith("/api/")) {
-        await routeApi(request, response, url);
-        return;
-      }
-      await serveStatic(url, response);
-    } catch (error) {
-      sendJson(response, 500, { error: error.message || "Internal server error" });
-    }
   });
+
+  app.post("/api/media/forehead", async (request, response) => {
+    const generated = await generateForeheadPortrait(request.body || {});
+    response.status(generated.status).json(generated.body);
+  });
+
+  return app;
 }
 
-function listenWithFallback(targetPort, attemptsLeft = 10) {
-  const server = createAppServer();
-  server.once("error", (error) => {
+async function attachFrontend(app) {
+  if (isProduction) {
+    app.use(express.static(distClientDir));
+    app.get("*", (request, response) => {
+      response.sendFile(join(distClientDir, "index.html"));
+    });
+    return;
+  }
+
+  const { createServer: createViteServer } = await import("vite");
+  const vite = await createViteServer({
+    root: clientDir,
+    server: {
+      middlewareMode: true,
+    },
+    appType: "spa",
+  });
+  app.use(vite.middlewares);
+}
+
+async function listenWithFallback(targetPort, attemptsLeft = 10) {
+  const app = createApp();
+  await attachFrontend(app);
+
+  const server = app.listen(targetPort, host, () => {
+    console.log(`FizzBuzz listening at http://${host}:${targetPort}`);
+  });
+
+  server.once("error", async (error) => {
     if (error.code === "EADDRINUSE" && attemptsLeft > 1) {
       console.log(`Port ${targetPort} is busy; trying ${targetPort + 1}.`);
-      listenWithFallback(targetPort + 1, attemptsLeft - 1);
+      await listenWithFallback(targetPort + 1, attemptsLeft - 1);
       return;
     }
 
-    console.error(`Could not start FizzBuzz backend on ${host}:${targetPort}.`);
+    console.error(`Could not start FizzBuzz on ${host}:${targetPort}.`);
     console.error(error.message);
     process.exitCode = 1;
   });
-
-  server.listen(targetPort, host, () => {
-    console.log(`FizzBuzz backend listening at http://${host}:${targetPort}`);
-  });
 }
 
-listenWithFallback(port);
+await listenWithFallback(port);
