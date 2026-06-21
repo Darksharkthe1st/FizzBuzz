@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FizzBuzz - Roommate Boss Battle</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="prep-screen screen is-active" id="prepScreen" aria-labelledby="prepTitle">
+        <div class="kitchen-set">
+          <div class="fridge">
+            <div class="freezer-label">Freezer Crimes Unit</div>
+            <div class="cola-blast" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <label class="photo-evidence" for="roommatePhoto">
+              <input id="roommatePhoto" type="file" accept="image/*" />
+              <span class="upload-copy">Attach roommate evidence</span>
+              <img id="photoPreview" alt="Uploaded roommate evidence preview" />
+            </label>
+          </div>
+
+          <div class="trial-board">
+            <p class="case-stamp">Case file: 10pm snack betrayal</p>
+            <h1 id="prepTitle">FizzBuzz</h1>
+            <p class="subtitle">
+              Practice confronting the most annoying, elusive, distracting, and unyielding roommate
+              ever coded.
+            </p>
+
+            <form id="prepForm" class="prep-form">
+              <label for="argumentInput">What did they do this time?</label>
+              <textarea
+                id="argumentInput"
+                name="argument"
+                maxlength="180"
+                placeholder="Example: froze a Coke can until it exploded, then left the sticky crime scene for everyone else"
+              ></textarea>
+
+              <div class="evidence-row" aria-label="Confrontation settings">
+                <label class="meter-control">
+                  <span>Petty Evidence</span>
+                  <input id="evidenceInput" type="range" min="1" max="5" value="4" />
+                </label>
+                <label class="meter-control">
+                  <span>Roommate Aggro</span>
+                  <input id="aggroInput" type="range" min="1" max="5" value="3" />
+                </label>
+              </div>
+
+              <button class="big-button" type="submit">Knock with confidence</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="battle-screen screen" id="battleScreen" aria-labelledby="battleTitle">
+        <div class="hallway-set" id="hallwaySet">
+          <div class="versus-strip">
+            <div>
+              <span>You</span>
+              <strong>Lease-Holding Prosecutor</strong>
+            </div>
+            <div class="round-badge" id="roundBadge">Round 1</div>
+            <div>
+              <span>Roommate</span>
+              <strong id="bossTitle">The Deflection Engine</strong>
+            </div>
+          </div>
+
+          <div class="battle-stage">
+            <aside class="player-side">
+              <div class="fighter-name">You</div>
+              <div class="health-wrap">
+                <span>Apartment Credibility</span>
+                <div class="health"><b id="playerHealth"></b></div>
+              </div>
+              <div class="attack-ticket">
+                <span>Your opener</span>
+                <strong id="attackName">Respectful Boundary Jab</strong>
+                <p id="attackCaption">A calm sentence with terrifying eye contact.</p>
+              </div>
+            </aside>
+
+            <div class="door-zone" id="doorZone">
+              <button class="door" id="doorButton" type="button" aria-label="Knock on roommate door">
+                <span class="door-sign">Roommate Lair</span>
+                <span class="door-knob"></span>
+                <span class="knock-text" id="knockText">Knock</span>
+              </button>
+              <div class="floor-note" id="floorNote">Evidence bag: soggy and judgmental</div>
+            </div>
+
+            <aside class="boss-side" id="bossSide">
+              <div class="fighter-name" id="roommateName">Roommate</div>
+              <div class="health-wrap">
+                <span>Accountability Shield</span>
+                <div class="health boss"><b id="bossHealth"></b></div>
+              </div>
+              <div class="roommate-avatar-wrap">
+                <div class="rage-aura"></div>
+                <img id="bossPhoto" alt="Distorted roommate boss" />
+                <div class="fallback-face" id="fallbackFace" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <b></b>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <div class="subtitle-rail" aria-live="polite">
+            <p id="subtitleLine">The hallway is quiet. Too quiet for someone with shared dishes.</p>
+          </div>
+
+          <div class="battle-controls">
+            <button class="battle-button" id="speakButton" type="button" disabled>Escalate politely</button>
+            <button class="battle-button secondary" id="resetButton" type="button">New grievance</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
