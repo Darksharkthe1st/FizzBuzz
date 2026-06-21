@@ -53,6 +53,35 @@ const counterBank = [
   },
 ];
 
+const AGENT_MODES = new Set(["easy", "medium", "hard"]);
+
+const agentDifficultyBank = {
+  easy: {
+    label: "Easy Agent",
+    temperature: 0.62,
+    prompt:
+      "You are the FizzBuzz Easy roommate boss: evasive but ultimately coachable. Reply as the roommate only. Be funny, brief, and defensive at first, but concede quickly when the user makes a clear, calm ask. Never narrate game mechanics. Never be threatening.",
+    greeting:
+      "Okay, I am opening the door, but I reserve the right to misunderstand the entire situation.",
+  },
+  medium: {
+    label: "Medium Agent",
+    temperature: 0.78,
+    prompt:
+      "You are the FizzBuzz Medium roommate boss: funny, evasive, and allergic to accountability. Reply as the roommate only. React to the user's exact complaint, deflect once, then leave a small opening for a clear boundary. Keep responses to one or two punchy sentences. Never narrate game mechanics. Never be threatening.",
+    greeting:
+      "What? I was literally about to handle it, emotionally if not logistically.",
+  },
+  hard: {
+    label: "Hard Agent",
+    temperature: 0.92,
+    prompt:
+      "You are the FizzBuzz Hard roommate boss: a high-pressure deflection machine. Reply as the roommate only. Be funny, specific, and slippery, using excuses, technicalities, and fake confusion. Still keep it playful and non-threatening. Reward clear boundaries by grudgingly softening. Keep responses short enough for live voice.",
+    greeting:
+      "Before you start, I just need to say the evidence has a lot of context you are choosing to ignore.",
+  },
+};
+
 const defensiveBank = [
   {
     trigger: ["always", "every time", "again"],
@@ -547,14 +576,7 @@ function buildFightCard(session) {
   };
 }
 
-async function advanceArgument(sessionId, transcript = "", confidence) {
-  const session = sessions.get(sessionId);
-  if (!session) {
-    return null;
-  }
-
-  const defensive =
-    (await generateGeminiArgumentTurn(session, transcript)) || chooseDefensiveResponse(session, transcript);
+async function scoreArgumentTurn(session, transcript = "", confidence) {
   const boundary = scoreBoundary(transcript, session.argument);
   const analysis = await analyzeTranscript(session, transcript);
 
@@ -583,10 +605,6 @@ async function advanceArgument(sessionId, transcript = "", confidence) {
     player: session.player,
     boss: session.boss,
     heard,
-    attack: defensive.attack,
-    roommateLine: complete
-      ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
-      : defensive.roommateLine,
     complete,
     boundary: { score: boundary.score, labels: boundary.labels },
     analysis: analysis
@@ -604,6 +622,46 @@ async function advanceArgument(sessionId, transcript = "", confidence) {
   }
 
   return result;
+}
+
+async function advanceArgument(sessionId, transcript = "", confidence) {
+  const session = sessions.get(sessionId);
+  if (!session) {
+    return null;
+  }
+
+  const defensive =
+    (await generateGeminiArgumentTurn(session, transcript)) || chooseDefensiveResponse(session, transcript);
+  const result = await scoreArgumentTurn(session, transcript, confidence);
+  return {
+    ...result,
+    attack: defensive.attack,
+    roommateLine: result.complete
+      ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
+      : defensive.roommateLine,
+  };
+}
+
+async function scoreAgentArgument(sessionId, transcript = "", confidence) {
+  const session = sessions.get(sessionId);
+  if (!session) {
+    return null;
+  }
+
+  const result = await scoreArgumentTurn(session, transcript, confidence);
+  const counter = counterBank[(session.exchange - 1) % counterBank.length] || counterBank[0];
+  return {
+    ...result,
+    attack: {
+      name: counter.name,
+      line: transcript
+        ? `You said: "${truncateForDisplay(transcript, 130)}"`
+        : counter.line,
+    },
+    roommateLine: result.complete
+      ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
+      : "",
+  };
 }
 
 function chooseDefensiveResponse(session, transcript) {
@@ -914,6 +972,161 @@ async function createDeepgramToken() {
   };
 }
 
+function resolveAgentMode(mode) {
+  return AGENT_MODES.has(mode) ? mode : "medium";
+}
+
+function createAgentPrompt(profile, payload = {}) {
+  return [
+    profile.prompt,
+    `The user's grievance topic is: ${shortTopic(payload.argument, 120)}.`,
+    `Evidence strength: ${clampNumber(payload.evidence, 1, 5, 4)}/5.`,
+    `Roommate aggro setting: ${clampNumber(payload.aggro, 1, 5, 3)}/5.`,
+    "When the user states a clear, calm, specific boundary, soften or concede a little.",
+    "Do not mention Deepgram, transcripts, health bars, scoring, JSON, or being an AI.",
+  ].join("\n");
+}
+
+function createAgentSettings(mode, payload = {}) {
+  const resolvedMode = resolveAgentMode(mode);
+  const profile = agentDifficultyBank[resolvedMode];
+  const listenModel = process.env.DEEPGRAM_AGENT_STT_MODEL || "flux-general-en";
+  const thinkProvider = process.env.DEEPGRAM_AGENT_LLM_PROVIDER || "open_ai";
+  const thinkModel = process.env.DEEPGRAM_AGENT_LLM_MODEL || "gpt-4o-mini";
+  const speakModel = resolveTtsModel(payload.ttsModel || process.env.DEEPGRAM_AGENT_TTS_MODEL);
+
+  return {
+    mode: resolvedMode,
+    label: profile.label,
+    settings: {
+      type: "Settings",
+      tags: ["fizzbuzz", "voice_agent", resolvedMode],
+      audio: {
+        input: {
+          encoding: "linear16",
+          sample_rate: 24000,
+        },
+        output: {
+          encoding: "linear16",
+          sample_rate: 24000,
+          container: "none",
+        },
+      },
+      agent: {
+        language: "en",
+        listen: {
+          provider: {
+            type: "deepgram",
+            model: listenModel,
+            version: listenModel.startsWith("flux-") ? "v2" : undefined,
+            eot_threshold: resolveNumericEnv("DEEPGRAM_EOT_THRESHOLD", { min: 0, max: 1, fallback: 0.7 }),
+            eager_eot_threshold: resolveNumericEnv("DEEPGRAM_EAGER_EOT_THRESHOLD", {
+              min: 0,
+              max: 1,
+              fallback: 0.6,
+            }),
+            eot_timeout_ms: resolveNumericEnv("DEEPGRAM_EOT_TIMEOUT_MS", {
+              min: 500,
+              max: 30000,
+              fallback: 5000,
+            }),
+          },
+        },
+        think: {
+          provider: {
+            type: thinkProvider,
+            model: thinkModel,
+            temperature: profile.temperature,
+          },
+          prompt: createAgentPrompt(profile, payload),
+          context_length: 4000,
+        },
+        speak: {
+          provider: {
+            type: "deepgram",
+            model: speakModel,
+          },
+        },
+        greeting: profile.greeting,
+      },
+    },
+  };
+}
+
+async function createDeepgramAgentConfig(payload) {
+  const apiKey = process.env.DEEPGRAM_API_KEY;
+  const enabled = process.env.USE_DEEPGRAM === "true" && Boolean(apiKey);
+  const agentMode = resolveAgentMode(payload.mode);
+  const agent = createAgentSettings(agentMode, payload);
+
+  console.info(
+    `[agent] /api/voice/agent requested; USE_DEEPGRAM=${process.env.USE_DEEPGRAM}; keyPresent=${Boolean(apiKey)}; mode=${agent.mode}`,
+  );
+
+  if (!enabled) {
+    return {
+      status: 200,
+      body: {
+        mode: "mock",
+        agentMode: agent.mode,
+        label: agent.label,
+        message:
+          "Deepgram Agent mode needs DEEPGRAM_API_KEY and USE_DEEPGRAM=true. Falling back to turn-style/browser captions.",
+      },
+    };
+  }
+
+  let response;
+  try {
+    response = await fetch("https://api.deepgram.com/v1/auth/grant", {
+      method: "POST",
+      headers: {
+        authorization: `Token ${apiKey}`,
+      },
+    });
+  } catch {
+    return {
+      status: 200,
+      body: {
+        mode: "mock",
+        agentMode: agent.mode,
+        label: agent.label,
+        message: "Deepgram Agent token minting could not be reached. Falling back to turn-style.",
+        deepgramStatus: 0,
+      },
+    };
+  }
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.access_token) {
+    const deepgramMessage = result.err_msg || result.error?.message || result.error;
+    return {
+      status: 200,
+      body: {
+        mode: "mock",
+        agentMode: agent.mode,
+        label: agent.label,
+        message: deepgramMessage || "Deepgram Agent token minting failed. Falling back to turn-style.",
+        deepgramStatus: response.status,
+      },
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      mode: "deepgram-agent",
+      agentMode: agent.mode,
+      label: agent.label,
+      token: result.access_token,
+      authProtocol: "bearer",
+      expiresIn: result.expires_in || 30,
+      agentUrl: process.env.DEEPGRAM_AGENT_URL || "wss://agent.deepgram.com/v1/agent/converse",
+      settings: agent.settings,
+    },
+  };
+}
+
 // Verified live against /v1/speak with aura-2-thalia-en on 2026-06-21: the
 // API accepts a `speed` query param and it genuinely changes playback pace
 // (confirmed via output byte size at fixed text length), but the accepted
@@ -1101,6 +1314,8 @@ function createApp() {
         // visible even while Deepgram itself is disabled.
         deepgramSttMode: sttMode,
         deepgramSttModel: sttModel,
+        deepgramAgent: process.env.USE_DEEPGRAM === "true",
+        deepgramAgentUrl: process.env.DEEPGRAM_AGENT_URL || "wss://agent.deepgram.com/v1/agent/converse",
         pika: process.env.USE_PIKA === "true",
       },
     });
@@ -1119,9 +1334,23 @@ function createApp() {
     response.json(next);
   });
 
+  app.post("/api/argue/score", async (request, response) => {
+    const next = await scoreAgentArgument(request.body?.sessionId, request.body?.transcript, request.body?.confidence);
+    if (!next) {
+      response.status(404).json({ error: "Unknown confrontation session" });
+      return;
+    }
+    response.json(next);
+  });
+
   app.post("/api/voice/token", async (request, response) => {
     const token = await createDeepgramToken();
     response.status(token.status).json(token.body);
+  });
+
+  app.post("/api/voice/agent", async (request, response) => {
+    const agent = await createDeepgramAgentConfig(request.body || {});
+    response.status(agent.status).json(agent.body);
   });
 
   app.post("/api/voice/speak", async (request, response) => {

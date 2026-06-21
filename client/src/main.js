@@ -34,6 +34,7 @@ const bossTitle = document.querySelector("#bossTitle");
 const floorNote = document.querySelector("#floorNote");
 const playerHealth = document.querySelector("#playerHealth");
 const bossHealth = document.querySelector("#bossHealth");
+const conversationModeSelect = document.querySelector("#conversationModeSelect");
 const voiceStyleSelect = document.querySelector("#voiceStyleSelect");
 const previewVoiceButton = document.querySelector("#previewVoiceButton");
 const boundaryLabels = document.querySelector("#boundaryLabels");
@@ -86,6 +87,7 @@ const state = {
   exchange: 0,
   evidence: 4,
   aggro: 3,
+  conversationMode: "turn-style",
   voiceStyleId: "deeply-inconvenienced",
   lastFightCard: null,
   voice: {
@@ -131,6 +133,18 @@ const state = {
     // forced interruption (barge-in) doesn't leave that promise hanging
     // forever.
     resolveSpeaking: null,
+  },
+  agent: {
+    audioContext: null,
+    source: null,
+    processor: null,
+    outputCursor: 0,
+    outputSources: new Set(),
+    playing: false,
+    lastUserText: "",
+    lastAssistantText: "",
+    scoring: false,
+    keepAliveTimer: 0,
   },
 };
 
@@ -236,6 +250,96 @@ function getRecorderMimeType() {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
+function floatToLinear16(floatSamples) {
+  const output = new Int16Array(floatSamples.length);
+  for (let index = 0; index < floatSamples.length; index += 1) {
+    const sample = Math.max(-1, Math.min(1, floatSamples[index]));
+    output[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+  }
+  return output.buffer;
+}
+
+function resampleToLinear16(input, inputSampleRate, outputSampleRate = 24000) {
+  if (inputSampleRate === outputSampleRate) {
+    return floatToLinear16(input);
+  }
+
+  const ratio = inputSampleRate / outputSampleRate;
+  const outputLength = Math.max(1, Math.floor(input.length / ratio));
+  const output = new Float32Array(outputLength);
+  for (let index = 0; index < outputLength; index += 1) {
+    output[index] = input[Math.min(input.length - 1, Math.floor(index * ratio))];
+  }
+  return floatToLinear16(output);
+}
+
+function playAgentPcmChunk(arrayBuffer, sampleRate = 24000) {
+  const context = state.agent.audioContext;
+  if (!context || !arrayBuffer?.byteLength) return;
+
+  const pcm = new Int16Array(arrayBuffer);
+  if (!pcm.length) return;
+
+  const audioBuffer = context.createBuffer(1, pcm.length, sampleRate);
+  const channel = audioBuffer.getChannelData(0);
+  for (let index = 0; index < pcm.length; index += 1) {
+    channel[index] = pcm[index] / 0x8000;
+  }
+
+  const source = context.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(context.destination);
+
+  const startAt = Math.max(context.currentTime + 0.02, state.agent.outputCursor || 0);
+  state.agent.outputCursor = startAt + audioBuffer.duration;
+  state.agent.outputSources.add(source);
+  state.agent.playing = true;
+  source.addEventListener("ended", () => {
+    state.agent.outputSources.delete(source);
+    state.agent.playing = state.agent.outputSources.size > 0;
+  });
+  source.start(startAt);
+}
+
+function stopAgentAudio() {
+  for (const source of state.agent.outputSources) {
+    try {
+      source.stop();
+    } catch {
+      // Source already stopped.
+    }
+  }
+  state.agent.outputSources.clear();
+  state.agent.outputCursor = state.agent.audioContext?.currentTime || 0;
+  state.agent.playing = false;
+}
+
+function cleanupAgentVoice(socket = state.voice.socket, stream = state.voice.stream) {
+  if (state.agent.keepAliveTimer) {
+    window.clearInterval(state.agent.keepAliveTimer);
+    state.agent.keepAliveTimer = 0;
+  }
+  stopAgentAudio();
+  if (state.agent.processor) {
+    state.agent.processor.disconnect();
+    state.agent.processor.onaudioprocess = null;
+  }
+  if (state.agent.source) {
+    state.agent.source.disconnect();
+  }
+  state.agent.processor = null;
+  state.agent.source = null;
+  state.agent.lastUserText = "";
+  state.agent.lastAssistantText = "";
+  state.agent.scoring = false;
+  if (socket?.readyState === WebSocket.OPEN) {
+    socket.close();
+  }
+  stream?.getTracks().forEach((track) => track.stop());
+  if (state.voice.socket === socket) state.voice.socket = null;
+  if (state.voice.stream === stream) state.voice.stream = null;
+}
+
 function cleanupDeepgramVoice(socket, stream, recorder, shouldCloseSocket = true) {
   if (recorder?.state === "recording") {
     recorder.stop();
@@ -274,6 +378,7 @@ function resolveTtsStyle(bossHealth = 100, aggro = 3) {
 // here to release whoever is awaiting "the roommate finished talking"
 // instead of leaving that promise hanging forever.
 function stopRoommateSpeech() {
+  stopAgentAudio();
   if (state.tts.audio) {
     state.tts.audio.pause();
     state.tts.audio.removeAttribute("src");
@@ -405,6 +510,15 @@ async function speakRoommateLine(line, style = resolveTtsStyle()) {
 
 async function startVoiceArgument() {
   if (state.voice.active || state.voice.processing) return;
+  if (state.conversationMode !== "turn-style") {
+    await startDeepgramAgentArgument();
+    return;
+  }
+  await startTurnStyleVoiceArgument();
+}
+
+async function startTurnStyleVoiceArgument() {
+  if (state.voice.active || state.voice.processing) return;
 
   console.info("[voice] Argue live clicked; requesting /api/voice/token.");
   setVoiceActive(true);
@@ -436,6 +550,289 @@ async function startVoiceArgument() {
   } catch (error) {
     console.error("[voice] /api/voice/token failed; using browser speech fallback.", error);
     startBrowserSpeechFallback(error.message);
+  }
+}
+
+async function startDeepgramAgentArgument() {
+  console.info("[agent] Argue live clicked; requesting /api/voice/agent.", { mode: state.conversationMode });
+  setVoiceActive(true);
+  state.voice.mode = "agent";
+  state.voice.finalTranscript = "";
+  state.voice.interimTranscript = "";
+  state.agent.lastUserText = "";
+  state.agent.lastAssistantText = "";
+  markMicLatencyStart();
+  setRefereeMode(`Agent: ${state.conversationMode}`);
+  setRefereeTurnState("Awaiting agent");
+  setRefereeConfidence(null);
+  setVoiceUi("Requesting Deepgram Agent access. The roommate is loading a fresh excuse.");
+
+  try {
+    const agent = await postJson("/api/voice/agent", {
+      mode: state.conversationMode,
+      argument: state.argument,
+      evidence: state.evidence,
+      aggro: state.aggro,
+      ttsModel: getSelectedVoiceModel(),
+    });
+    console.info("[agent] Agent endpoint response:", {
+      mode: agent.mode,
+      agentMode: agent.agentMode,
+      hasToken: Boolean(agent.token),
+      hasSettings: Boolean(agent.settings),
+      message: agent.message,
+    });
+
+    if (agent.mode === "deepgram-agent" && agent.token && agent.agentUrl && agent.settings) {
+      await startDeepgramAgentVoice(agent);
+      return;
+    }
+
+    setVoiceUi(agent.message || "Agent mode is unavailable. Falling back to turn-style.");
+    setRefereeMode("Turn-style fallback");
+    setVoiceActive(false);
+    await startTurnStyleVoiceArgument();
+  } catch (error) {
+    console.error("[agent] /api/voice/agent failed; falling back to turn-style.", error);
+    setVoiceUi(error.message || "Agent mode failed. Falling back to turn-style.");
+    setRefereeMode("Turn-style fallback");
+    setVoiceActive(false);
+    await startTurnStyleVoiceArgument();
+  }
+}
+
+async function startDeepgramAgentVoice(agent) {
+  state.voice.mode = "agent";
+  state.voice.sttMode = "agent";
+  state.voice.sttModel = agent.settings?.agent?.listen?.provider?.model || "";
+  console.info("[agent] Starting Deepgram Agent voice mode.", {
+    agentMode: agent.agentMode,
+    sttModel: state.voice.sttModel,
+  });
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+  });
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) {
+    throw new Error("This browser does not expose Web Audio for Agent mode.");
+  }
+  const audioContext = state.agent.audioContext || new AudioContext();
+  if (audioContext.state === "suspended") {
+    await audioContext.resume();
+  }
+  state.agent.audioContext = audioContext;
+  state.agent.outputCursor = audioContext.currentTime;
+
+  const authProtocol = agent.authProtocol || "bearer";
+  const socket = new WebSocket(agent.agentUrl, [authProtocol, agent.token]);
+  socket.binaryType = "arraybuffer";
+
+  state.voice.stream = stream;
+  state.voice.socket = socket;
+  state.voice.recorder = null;
+
+  socket.addEventListener("open", () => {
+    if (state.voice.socket !== socket) return;
+    console.info("[agent] Deepgram Agent websocket open.");
+    setRefereeTurnState("Configuring agent");
+    setVoiceUi("Deepgram Agent is connected. Waiting for settings to apply.");
+  });
+
+  socket.addEventListener("message", async (event) => {
+    if (state.voice.socket !== socket) return;
+
+    if (event.data instanceof ArrayBuffer) {
+      markRoommateResponseStart();
+      playAgentPcmChunk(event.data, agent.settings?.audio?.output?.sample_rate || 24000);
+      return;
+    }
+    if (event.data instanceof Blob) {
+      markRoommateResponseStart();
+      playAgentPcmChunk(await event.data.arrayBuffer(), agent.settings?.audio?.output?.sample_rate || 24000);
+      return;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (error) {
+      console.error("[agent] Failed to parse Agent websocket message.", { raw: event.data, error });
+      return;
+    }
+    handleAgentMessage(data, socket, stream, agent);
+  });
+
+  socket.addEventListener("close", (event) => {
+    console.warn("[agent] Deepgram Agent websocket closed.", {
+      code: event.code,
+      reason: event.reason,
+      wasClean: event.wasClean,
+    });
+    if (state.voice.socket !== socket) return;
+    cleanupAgentVoice(socket, stream);
+    setVoiceActive(false);
+    if (state.boss > 0) {
+      setVoiceUi("Deepgram Agent left the hallway. Turn-style is still available.");
+      setRefereeTurnState("Awaiting mic");
+    }
+  });
+
+  socket.addEventListener("error", (event) => {
+    console.error("[agent] Deepgram Agent websocket error.", event);
+    if (state.voice.socket !== socket) return;
+    cleanupAgentVoice(socket, stream);
+    setVoiceActive(false);
+    setVoiceUi("Deepgram Agent tripped over the doormat. Try turn-style if this keeps happening.");
+  });
+}
+
+function startAgentPcmCapture(socket, stream, sampleRate = 24000) {
+  const context = state.agent.audioContext;
+  if (!context) return;
+  const source = context.createMediaStreamSource(stream);
+  const processor = context.createScriptProcessor(4096, 1, 1);
+  processor.onaudioprocess = (event) => {
+    if (state.voice.socket !== socket || socket.readyState !== WebSocket.OPEN) return;
+    if (state.agent.playing) return;
+    const input = event.inputBuffer.getChannelData(0);
+    socket.send(resampleToLinear16(input, context.sampleRate, sampleRate));
+  };
+  source.connect(processor);
+  processor.connect(context.destination);
+  state.agent.source = source;
+  state.agent.processor = processor;
+}
+
+function handleAgentMessage(data, socket, stream, agent) {
+  console.debug("[agent] Agent event:", data);
+
+  if (data.type === "Welcome") {
+    socket.send(JSON.stringify(agent.settings));
+    return;
+  }
+
+  if (data.type === "SettingsApplied") {
+    setRefereeMode(agent.label || `Agent: ${agent.agentMode}`);
+    setRefereeTurnState("Listening");
+    setVoiceUi("Deepgram Agent is live. Start arguing before the roommate finds a loophole.");
+    startAgentPcmCapture(socket, stream, agent.settings?.audio?.input?.sample_rate || 24000);
+    state.agent.keepAliveTimer = window.setInterval(() => {
+      if (state.voice.socket === socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "KeepAlive" }));
+      }
+    }, 5000);
+    return;
+  }
+
+  if (data.type === "UserStartedSpeaking") {
+    stopAgentAudio();
+    markFirstTranscript();
+    setRefereeTurnState("User started speaking");
+    setVoiceUi("Hearing you in Agent mode...", state.voice.finalTranscript);
+    return;
+  }
+
+  if (data.type === "AgentThinking") {
+    markEndOfTurn();
+    setRefereeTurnState("Agent preparing deflection");
+    if (data.content) {
+      console.debug("[agent] Agent thinking:", data.content);
+    }
+    return;
+  }
+
+  if (data.type === "AgentStartedSpeaking") {
+    setRefereeTurnState("Roommate responding");
+    if (typeof data.total_latency === "number") {
+      refereeLatency.textContent = `Agent response latency: ${Math.round(data.total_latency * 1000)}ms`;
+    }
+    markRoommateResponseStart();
+    return;
+  }
+
+  if (data.type === "ConversationText") {
+    const content = String(data.content || "").trim();
+    if (!content) return;
+    if (data.role === "user") {
+      state.voice.finalTranscript = content;
+      state.voice.interimTranscript = "";
+      markFirstTranscript();
+      setRefereeConfidence(null);
+      setRefereeTurnState("Agent heard turn");
+      setVoiceUi("Deepgram Agent stamped your transcript.", content);
+      void scoreAgentBattle(content);
+      return;
+    }
+    if (data.role === "assistant") {
+      state.agent.lastAssistantText = content;
+      subtitleLine.textContent = `Roommate: "${content}"`;
+      setVoiceUi("Roommate is responding through Deepgram Agent.", state.voice.finalTranscript || content);
+      return;
+    }
+  }
+
+  if (data.type === "AgentAudioDone") {
+    console.info("[agent] Agent audio stream finished sending.");
+    return;
+  }
+
+  if (data.type === "Error") {
+    console.error("[agent] Agent error.", data);
+    setVoiceUi(data.description || "Deepgram Agent reported an error.");
+    return;
+  }
+
+  if (data.type === "Warning") {
+    console.warn("[agent] Agent warning.", data);
+  }
+}
+
+async function scoreAgentBattle(transcript) {
+  const heard = String(transcript || "").trim();
+  if (!heard || state.agent.scoring || heard === state.agent.lastUserText) return;
+  state.agent.scoring = true;
+  state.agent.lastUserText = heard;
+
+  try {
+    const next = await postJson("/api/argue/score", {
+      sessionId: state.sessionId,
+      transcript: heard,
+      confidence: null,
+    });
+    state.round = next.round;
+    state.player = next.player;
+    state.boss = next.boss;
+    attackName.textContent = next.attack.name;
+    attackCaption.textContent = next.attack.line;
+    roundBadge.textContent = next.complete ? "Victory: Accountability Located" : `Round ${state.round}`;
+    renderBoundaryLabels(next.boundary);
+    renderAnalysisNote(next.analysis);
+    setHealth();
+    bossHealth.parentElement.classList.add("damage-pop");
+    window.setTimeout(() => bossHealth.parentElement.classList.remove("damage-pop"), 450);
+
+    if (next.complete) {
+      subtitleLine.textContent = next.roommateLine;
+      speakButton.textContent = "Grievance filed";
+      speakButton.disabled = true;
+      setVoiceUi("Case closed. The mic has nothing left to prove.", next.heard || heard);
+      cleanupAgentVoice();
+      setVoiceActive(false);
+      if (next.fightCard) {
+        state.lastFightCard = next.fightCard;
+        window.setTimeout(() => showFightCard(next.fightCard), 900);
+      }
+    }
+  } catch (error) {
+    console.error("[agent] Agent scoring failed.", error);
+    setVoiceUi(error.message || "Agent mode heard you, but scoring failed.");
+  } finally {
+    state.agent.scoring = false;
   }
 }
 
@@ -731,6 +1128,14 @@ function startBrowserSpeechFallback(reason = "") {
 function stopVoiceArgument(shouldResolve = true) {
   const transcript = state.voice.finalTranscript || state.voice.interimTranscript;
   setVoiceActive(false);
+
+  if (state.voice.mode === "agent") {
+    cleanupAgentVoice(state.voice.socket, state.voice.stream);
+    if (shouldResolve) {
+      void scoreAgentBattle(transcript);
+    }
+    return;
+  }
 
   cleanupDeepgramVoice(state.voice.socket, state.voice.stream, state.voice.recorder);
   if (state.voice.recognizer) {
@@ -1030,6 +1435,11 @@ foreheadButton.addEventListener("click", async () => {
   }
 });
 
+conversationModeSelect.addEventListener("change", () => {
+  state.conversationMode = conversationModeSelect.value || "turn-style";
+  console.info("[agent] Conversation mode selected.", { mode: state.conversationMode });
+});
+
 voiceStyleSelect.addEventListener("change", () => {
   state.voiceStyleId = resolveVoiceStyleId(voiceStyleSelect.value);
   console.info("[voice] Voice style selected.", { selected: voiceStyleSelect.value, resolved: state.voiceStyleId });
@@ -1053,6 +1463,7 @@ prepForm.addEventListener("submit", async (event) => {
   state.argument = argumentInput.value;
   state.evidence = Number(evidenceInput.value);
   state.aggro = Number(aggroInput.value);
+  state.conversationMode = conversationModeSelect.value || "turn-style";
   state.sessionId = "";
   state.roommateLine = "";
   state.round = 1;
