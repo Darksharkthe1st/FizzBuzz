@@ -523,11 +523,81 @@ async function generateGeminiArgumentTurn(session, transcript) {
   };
 }
 
+const VALID_STT_MODES = ["nova", "flux"];
+
+// Reads an env var as a number, clamped to [min, max]. Deepgram rejects the
+// whole websocket connection (close code 1006) if a query param value is
+// out of its accepted range, so we clamp defensively here rather than
+// finding out live during a demo. Every fallback is logged loudly so a
+// misconfigured .env never fails silently.
+function resolveNumericEnv(name, { min, max, fallback }) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    console.warn(`[voice] ${name}="${raw}" is not a number; using default ${fallback}.`);
+    return fallback;
+  }
+  if (value < min || value > max) {
+    const clamped = Math.min(max, Math.max(min, value));
+    console.warn(`[voice] ${name}=${value} is outside the expected range [${min}, ${max}]; clamped to ${clamped}.`);
+    return clamped;
+  }
+  return value;
+}
+
+// Resolves DEEPGRAM_STT_MODE to a known value. An unset or unrecognized
+// mode (typo, leftover value from a different branch, etc.) falls back to
+// "nova" -- the long-proven path -- instead of breaking voice entirely.
+// The fallback is always logged so it is never a silent surprise mid-demo.
+function resolveSttMode() {
+  const raw = process.env.DEEPGRAM_STT_MODE;
+  if (VALID_STT_MODES.includes(raw)) return raw;
+  if (raw) {
+    console.warn(
+      `[voice] DEEPGRAM_STT_MODE="${raw}" is not recognized (expected "nova" or "flux"); falling back to "nova".`,
+    );
+  }
+  return "nova";
+}
+
+// Builds the Deepgram Listen websocket URL for the resolved STT mode.
+// Verified against the live Flux API on 2026-06-21: an unrecognized query
+// param name causes Deepgram to immediately close the connection (code
+// 1006) rather than ignore it, so every param name here is one that was
+// confirmed to be accepted -- do not add new ones without re-verifying.
+function buildListenUrl(sttMode) {
+  if (sttMode === "flux") {
+    const model = process.env.DEEPGRAM_STT_MODEL || "flux-general-en";
+    const eotThreshold = resolveNumericEnv("DEEPGRAM_EOT_THRESHOLD", { min: 0, max: 1, fallback: 0.7 });
+    const eagerEotThreshold = resolveNumericEnv("DEEPGRAM_EAGER_EOT_THRESHOLD", {
+      min: 0,
+      max: 1,
+      fallback: 0.6,
+    });
+    const eotTimeoutMs = resolveNumericEnv("DEEPGRAM_EOT_TIMEOUT_MS", { min: 500, max: 30000, fallback: 5000 });
+    const params = new URLSearchParams({
+      model,
+      eot_threshold: String(eotThreshold),
+      eager_eot_threshold: String(eagerEotThreshold),
+      eot_timeout_ms: String(eotTimeoutMs),
+    });
+    return { listenUrl: `wss://api.deepgram.com/v2/listen?${params.toString()}`, sttModel: model };
+  }
+
+  return {
+    listenUrl:
+      "wss://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&interim_results=true&endpointing=550&utterance_end_ms=1000",
+    sttModel: "nova-3",
+  };
+}
+
 async function createDeepgramToken() {
   const apiKey = process.env.DEEPGRAM_API_KEY;
   const enabled = process.env.USE_DEEPGRAM === "true" && Boolean(apiKey);
+  const sttMode = resolveSttMode();
   console.info(
-    `[voice] /api/voice/token requested; USE_DEEPGRAM=${process.env.USE_DEEPGRAM}; keyPresent=${Boolean(apiKey)}`,
+    `[voice] /api/voice/token requested; USE_DEEPGRAM=${process.env.USE_DEEPGRAM}; keyPresent=${Boolean(apiKey)}; sttMode=${sttMode}`,
   );
 
   if (!enabled) {
@@ -539,6 +609,7 @@ async function createDeepgramToken() {
         token: null,
         expiresIn: 0,
         listenUrl: null,
+        sttMode,
         message:
           "Deepgram is in mock mode. Add DEEPGRAM_API_KEY and set USE_DEEPGRAM=true for live transcription.",
       },
@@ -563,6 +634,7 @@ async function createDeepgramToken() {
         token: null,
         expiresIn: 0,
         listenUrl: null,
+        sttMode,
         message:
           "Deepgram could not be reached, so FizzBuzz is using browser speech captions for this round.",
         deepgramStatus: 0,
@@ -584,6 +656,7 @@ async function createDeepgramToken() {
         token: null,
         expiresIn: 0,
         listenUrl: null,
+        sttMode,
         message:
           response.status === 403
             ? "Deepgram rejected the API key or project permissions, so FizzBuzz is using browser speech captions for this round."
@@ -593,8 +666,9 @@ async function createDeepgramToken() {
     };
   }
 
+  const { listenUrl, sttModel } = buildListenUrl(sttMode);
   console.info(
-    `[voice] Deepgram token granted; expiresIn=${result.expires_in || 30}; returning Listen websocket config.`,
+    `[voice] Deepgram token granted; expiresIn=${result.expires_in || 30}; sttMode=${sttMode}; sttModel=${sttModel}; listenUrl=${listenUrl}`,
   );
   return {
     status: 200,
@@ -603,8 +677,9 @@ async function createDeepgramToken() {
       token: result.access_token,
       authProtocol: "bearer",
       expiresIn: result.expires_in || 30,
-      listenUrl:
-        "wss://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&interim_results=true&endpointing=550&utterance_end_ms=1000",
+      sttMode,
+      sttModel,
+      listenUrl,
     },
   };
 }
