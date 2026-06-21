@@ -1,0 +1,506 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/szisat",
+    "id": "szisat",
+    "slide": 1,
+    "layoutId": "038cf8b3-bd11-417f-8634-aec8049ea363",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "0beae88d-109f-4218-bfe9-6390b0a321e5",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FFD238",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "038cf8b3-bd11-417f-8634-aec8049ea363",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "0beae88d-109f-4218-bfe9-6390b0a321e5",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "0beae88d-109f-4218-bfe9-6390b0a321e5",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/eloj2t83",
+      "id": "1",
+      "bbox": [
+        34,
+        32,
+        1212,
+        656
+      ],
+      "geometry": "rect",
+      "lineColor": "#17120D",
+      "lineWidth": 6
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lc7u54zi",
+      "id": "2",
+      "bbox": [
+        84,
+        88,
+        384,
+        86
+      ],
+      "geometry": "rect",
+      "fillColor": "#E41F26",
+      "lineColor": "#17120D",
+      "lineWidth": 5
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wra5gbq1",
+      "id": "3",
+      "bbox": [
+        102,
+        109,
+        348,
+        42
+      ],
+      "geometry": "rect",
+      "text": "ROOMMATE BOSS BATTLE",
+      "textPreview": "ROOMMATE BOSS BATTLE",
+      "resolvedFontSize": 25,
+      "resolvedTextStyle": {
+        "fontSize": 25,
+        "typeface": "+mn-lt",
+        "color": "#FFF8E7",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "ROOMMATE BOSS BATTLE"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "ROOMMATE BOSS BATTLE",
+          "resolvedTextStyle": {
+            "fontSize": 25,
+            "color": "#FFF8E7",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "ROOMMATE BOSS BATTLE",
+              "fontSize": 25,
+              "color": "#FFF8E7",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7u54zido",
+      "id": "4",
+      "bbox": [
+        84,
+        212,
+        720,
+        122
+      ],
+      "geometry": "rect",
+      "text": "FizzBuzz",
+      "textPreview": "FizzBuzz",
+      "resolvedFontSize": 88,
+      "resolvedTextStyle": {
+        "fontSize": 88,
+        "typeface": "+mn-lt",
+        "color": "#E41F26",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "FizzBuzz"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "FizzBuzz",
+          "resolvedTextStyle": {
+            "fontSize": 88,
+            "color": "#E41F26",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "FizzBuzz",
+              "fontSize": 88,
+              "color": "#E41F26",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ed8bat47",
+      "id": "5",
+      "bbox": [
+        92,
+        350,
+        640,
+        92
+      ],
+      "geometry": "rect",
+      "text": "Practice the awkward confrontation before it becomes a kitchen incident.",
+      "textPreview": "Practice the awkward confrontation before it becomes a kitchen incident.",
+      "resolvedFontSize": 30,
+      "resolvedTextStyle": {
+        "fontSize": 30,
+        "typeface": "+mn-lt",
+        "color": "#17120D",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Practice the awkward confrontation before it"
+          },
+          {
+            "index": 2,
+            "text": "becomes a kitchen incident."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Practice the awkward confrontation before it becomes a kitchen incident.",
+          "resolvedTextStyle": {
+            "fontSize": 30,
+            "color": "#17120D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Practice the awkward confrontation before it becomes a kitchen incident.",
+              "fontSize": 30,
+              "color": "#17120D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/l0rqd4vm",
+      "id": "6",
+      "bbox": [
+        94,
+        474,
+        640,
+        42
+      ],
+      "geometry": "rect",
+      "text": "AI roommate deflections + live speech + comic boss-battle coaching",
+      "textPreview": "AI roommate deflections + live speech + comic boss-battle coaching",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#1855B4",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "AI roommate deflections + live speech + comic boss-battle coaching"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "AI roommate deflections + live speech + comic boss-battle coaching",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#1855B4",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "AI roommate deflections + live speech + comic boss-battle coaching",
+              "fontSize": 22,
+              "color": "#1855B4",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wfyxobm5",
+      "id": "7",
+      "bbox": [
+        770,
+        120,
+        400,
+        470
+      ],
+      "geometry": "rect",
+      "fillColor": "#17120D",
+      "lineColor": "#17120D",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7mp0bi9s",
+      "id": "8",
+      "bbox": [
+        760,
+        110,
+        400,
+        470
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFF8E7",
+      "lineColor": "#17120D",
+      "lineWidth": 5
+    },
+    {
+      "order": 9,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/zqtcj6to",
+      "id": "9",
+      "bbox": [
+        766,
+        116,
+        388,
+        458
+      ],
+      "alt": "FizzBuzz setup screen with comic fridge and case form",
+      "contentType": "image/png",
+      "imageFit": "cover",
+      "asset": {
+        "assetId": "ab4f65ae-9e83-49bc-82c4-43eb7ea0f4b3",
+        "contentType": "image/png",
+        "byteLength": 262397
+      }
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0rqd4vmt",
+      "id": "10",
+      "bbox": [
+        861,
+        611,
+        236,
+        42
+      ],
+      "geometry": "rect",
+      "fillColor": "#17120D",
+      "lineColor": "#17120D",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tcj6tova",
+      "id": "11",
+      "bbox": [
+        856,
+        606,
+        236,
+        42
+      ],
+      "geometry": "rect",
+      "fillColor": "#6535B7",
+      "lineColor": "#17120D",
+      "lineWidth": 4
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/il0rqd4v",
+      "id": "12",
+      "bbox": [
+        870,
+        614,
+        208,
+        26
+      ],
+      "geometry": "rect",
+      "text": "DEMO SIDEKICK DECK",
+      "textPreview": "DEMO SIDEKICK DECK",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#FFF8E7",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "DEMO SIDEKICK DECK"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "DEMO SIDEKICK DECK",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#FFF8E7",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "DEMO SIDEKICK DECK",
+              "fontSize": 17,
+              "color": "#FFF8E7",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

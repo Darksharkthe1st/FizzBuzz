@@ -1,0 +1,813 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/q9v0se",
+    "id": "q9v0se",
+    "slide": 5,
+    "layoutId": "038cf8b3-bd11-417f-8634-aec8049ea363",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "0beae88d-109f-4218-bfe9-6390b0a321e5",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FFF2BD",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "038cf8b3-bd11-417f-8634-aec8049ea363",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "0beae88d-109f-4218-bfe9-6390b0a321e5",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "0beae88d-109f-4218-bfe9-6390b0a321e5",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u54zidon",
+      "id": "1",
+      "bbox": [
+        26,
+        24,
+        1228,
+        672
+      ],
+      "geometry": "rect",
+      "lineColor": "#17120D",
+      "lineWidth": 4
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5sneloj2",
+      "id": "2",
+      "bbox": [
+        909,
+        47,
+        300,
+        42
+      ],
+      "geometry": "rect",
+      "fillColor": "#17120D",
+      "lineColor": "#17120D",
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cbulwval",
+      "id": "3",
+      "bbox": [
+        904,
+        42,
+        300,
+        42
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFD238",
+      "lineColor": "#17120D",
+      "lineWidth": 4
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/neloj2t8",
+      "id": "4",
+      "bbox": [
+        918,
+        50,
+        272,
+        26
+      ],
+      "geometry": "rect",
+      "text": "FIZZBUZZ / HACKATHON DEMO",
+      "textPreview": "FIZZBUZZ / HACKATHON DEMO",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#17120D",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "FIZZBUZZ / HACKATHON DEMO"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "FIZZBUZZ / HACKATHON DEMO",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#17120D",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "FIZZBUZZ / HACKATHON DEMO",
+              "fontSize": 17,
+              "color": "#17120D",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ytsvu9kn",
+      "id": "5",
+      "bbox": [
+        70,
+        58,
+        890,
+        76
+      ],
+      "geometry": "rect",
+      "text": "Confrontation Loop",
+      "textPreview": "Confrontation Loop",
+      "resolvedFontSize": 50,
+      "resolvedTextStyle": {
+        "fontSize": 50,
+        "typeface": "+mn-lt",
+        "color": "#17120D",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Confrontation Loop"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Confrontation Loop",
+          "resolvedTextStyle": {
+            "fontSize": 50,
+            "color": "#17120D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Confrontation Loop",
+              "fontSize": 50,
+              "color": "#17120D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5kb6xkf6",
+      "id": "6",
+      "bbox": [
+        72,
+        132,
+        820,
+        52
+      ],
+      "geometry": "rect",
+      "text": "Speech turns become boss-battle progress and coaching signals.",
+      "textPreview": "Speech turns become boss-battle progress and coaching signals.",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "fontSize": 24,
+        "typeface": "+mn-lt",
+        "color": "#40140C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Speech turns become boss-battle progress and coaching signals."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Speech turns become boss-battle progress and coaching signals.",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "color": "#40140C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Speech turns become boss-battle progress and coaching signals.",
+              "fontSize": 24,
+              "color": "#40140C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/czed8v6p",
+      "id": "7",
+      "bbox": [
+        82,
+        186,
+        672,
+        430
+      ],
+      "geometry": "rect",
+      "fillColor": "#17120D",
+      "lineColor": "#17120D",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/n29gr2p8",
+      "id": "8",
+      "bbox": [
+        72,
+        176,
+        672,
+        430
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFF8E7",
+      "lineColor": "#17120D",
+      "lineWidth": 5
+    },
+    {
+      "order": 9,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/fmlkjm1c",
+      "id": "9",
+      "bbox": [
+        78,
+        182,
+        660,
+        418
+      ],
+      "alt": "FizzBuzz hallway boss battle screen after door opens",
+      "contentType": "image/png",
+      "imageFit": "cover",
+      "asset": {
+        "assetId": "2b0ac7b2-2050-483a-9d39-eda1a878e26f",
+        "contentType": "image/png",
+        "byteLength": 146869
+      }
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kb6xkf6d",
+      "id": "10",
+      "bbox": [
+        804,
+        196,
+        350,
+        38
+      ],
+      "geometry": "rect",
+      "text": "Visible sponsor beats",
+      "textPreview": "Visible sponsor beats",
+      "resolvedFontSize": 35,
+      "resolvedTextStyle": {
+        "fontSize": 35,
+        "typeface": "+mn-lt",
+        "color": "#17120D",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Visible sponsor beats"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Visible sponsor beats",
+          "resolvedTextStyle": {
+            "fontSize": 35,
+            "color": "#17120D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Visible sponsor beats",
+              "fontSize": 35,
+              "color": "#17120D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9w3m94fu",
+      "id": "11",
+      "bbox": [
+        816,
+        268,
+        290,
+        46
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#1855B4",
+      "lineColor": "#17120D",
+      "lineWidth": 4
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/25kb6xkf",
+      "id": "12",
+      "bbox": [
+        828,
+        279,
+        266,
+        24
+      ],
+      "geometry": "rect",
+      "text": "Deepgram Referee",
+      "textPreview": "Deepgram Referee",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#FFF8E7",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Deepgram Referee"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Deepgram Referee",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#FFF8E7",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Deepgram Referee",
+              "fontSize": 17,
+              "color": "#FFF8E7",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/rqd4vmtw",
+      "id": "13",
+      "bbox": [
+        816,
+        330,
+        290,
+        46
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#6535B7",
+      "lineColor": "#17120D",
+      "lineWidth": 4
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kzupwb2h",
+      "id": "14",
+      "bbox": [
+        828,
+        341,
+        266,
+        24
+      ],
+      "geometry": "rect",
+      "text": "Aura TTS Roommate",
+      "textPreview": "Aura TTS Roommate",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#FFF8E7",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Aura TTS Roommate"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Aura TTS Roommate",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#FFF8E7",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Aura TTS Roommate",
+              "fontSize": 17,
+              "color": "#FFF8E7",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9knih4by",
+      "id": "15",
+      "bbox": [
+        816,
+        392,
+        290,
+        46
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#E41F26",
+      "lineColor": "#17120D",
+      "lineWidth": 4
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2t83itgf",
+      "id": "16",
+      "bbox": [
+        828,
+        403,
+        266,
+        24
+      ],
+      "geometry": "rect",
+      "text": "Gemini Deflection Engine",
+      "textPreview": "Gemini Deflection Engine",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#FFF8E7",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Gemini Deflection Engine"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Gemini Deflection Engine",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#FFF8E7",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Gemini Deflection Engine",
+              "fontSize": 17,
+              "color": "#FFF8E7",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/re1w7mp0",
+      "id": "17",
+      "bbox": [
+        816,
+        454,
+        290,
+        46
+      ],
+      "geometry": "roundRect",
+      "fillColor": "#00A6B2",
+      "lineColor": "#17120D",
+      "lineWidth": 4
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gvy90je9",
+      "id": "18",
+      "bbox": [
+        828,
+        465,
+        266,
+        24
+      ],
+      "geometry": "rect",
+      "text": "Pika Media Hook",
+      "textPreview": "Pika Media Hook",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#FFF8E7",
+        "bold": true,
+        "alignment": "center",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Pika Media Hook"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Pika Media Hook",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#FFF8E7",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Pika Media Hook",
+              "fontSize": 17,
+              "color": "#FFF8E7",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9gr2p8nq",
+      "id": "19",
+      "bbox": [
+        800,
+        542,
+        370,
+        66
+      ],
+      "geometry": "rect",
+      "text": "The UX turns latency and transcripts into part of the game, so technical state is readable on stage.",
+      "textPreview": "The UX turns latency and transcripts into part of the game, so technical state is readable on stage.",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "fontSize": 19,
+        "typeface": "+mn-lt",
+        "color": "#40140C",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "The UX turns latency and transcripts into"
+          },
+          {
+            "index": 2,
+            "text": "part of the game, so technical state is"
+          },
+          {
+            "index": 3,
+            "text": "readable on stage."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "The UX turns latency and transcripts into part of the game, so technical state is readable on stage.",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "color": "#40140C",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "The UX turns latency and transcripts into part of the game, so technical state is readable on stage.",
+              "fontSize": 19,
+              "color": "#40140C",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

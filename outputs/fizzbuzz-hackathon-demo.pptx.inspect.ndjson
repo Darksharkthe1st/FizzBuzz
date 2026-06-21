@@ -1,0 +1,222 @@
+{"kind":"deck","id":"pr/kv56g6","name":"Deck"}
+{"kind":"layout","layoutId":"0beae88d-109f-4218-bfe9-6390b0a321e5","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"038cf8b3-bd11-417f-8634-aec8049ea363","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/szisat","slide":1,"title":"ROOMMATE BOSS BATTLE","textShapes":5}
+{"kind":"shape","id":"sh/eloj2t83","slide":1,"bbox":[34,32,1212,656]}
+{"kind":"shape","id":"sh/lc7u54zi","slide":1,"bbox":[84,88,384,86]}
+{"kind":"textbox","id":"sh/wra5gbq1","slide":1,"text":"ROOMMATE BOSS BATTLE","textPreview":"ROOMMATE BOSS BATTLE","textChars":20,"textLines":1,"bbox":[102,109,348,42]}
+{"kind":"textbox","id":"sh/7u54zido","slide":1,"text":"FizzBuzz","textPreview":"FizzBuzz","textChars":8,"textLines":1,"bbox":[84,212,720,122]}
+{"kind":"textbox","id":"sh/ed8bat47","slide":1,"text":"Practice the awkward confrontation before it becomes a kitchen incident.","textPreview":"Practice the awkward confrontation before it becomes a kitchen incident.","textChars":72,"textLines":1,"bbox":[92,350,640,92]}
+{"kind":"textbox","id":"sh/l0rqd4vm","slide":1,"text":"AI roommate deflections + live speech + comic boss-battle coaching","textPreview":"AI roommate deflections + live speech + comic boss-battle coaching","textChars":66,"textLines":1,"bbox":[94,474,640,42]}
+{"kind":"shape","id":"sh/wfyxobm5","slide":1,"bbox":[770,120,400,470]}
+{"kind":"shape","id":"sh/7mp0bi9s","slide":1,"bbox":[760,110,400,470]}
+{"kind":"shape","id":"sh/0rqd4vmt","slide":1,"bbox":[861,611,236,42]}
+{"kind":"shape","id":"sh/tcj6tova","slide":1,"bbox":[856,606,236,42]}
+{"kind":"textbox","id":"sh/il0rqd4v","slide":1,"text":"DEMO SIDEKICK DECK","textPreview":"DEMO SIDEKICK DECK","textChars":18,"textLines":1,"bbox":[870,614,208,26]}
+{"kind":"image","id":"im/zqtcj6to","slide":1,"name":"","alt":"FizzBuzz setup screen with comic fridge and case form","bbox":[766,116,388,458]}
+{"kind":"notes","id":"nt/szisat","slide":1,"text":""}
+{"kind":"slide","id":"sl/8rxqq9","slide":2,"title":"FIZZBUZZ / HACKATHON DEMO","textShapes":9}
+{"kind":"shape","id":"sh/nih4byhg","slide":2,"bbox":[26,24,1228,672]}
+{"kind":"shape","id":"sh/g3ex0nux","slide":2,"bbox":[909,47,300,42]}
+{"kind":"shape","id":"sh/5o7qpg3e","slide":2,"bbox":[904,42,300,42]}
+{"kind":"textbox","id":"sh/ylc7u54z","slide":2,"text":"FIZZBUZZ / HACKATHON DEMO","textPreview":"FIZZBUZZ / HACKATHON DEMO","textChars":25,"textLines":1,"bbox":[918,50,272,26]}
+{"kind":"textbox","id":"sh/r65wjudg","slide":2,"text":"The Problem","textPreview":"The Problem","textChars":11,"textLines":1,"bbox":[70,58,890,76]}
+{"kind":"textbox","id":"sh/gr2p8nqx","slide":2,"text":"Roommate conflict is small enough to avoid and big enough to rot the apartment.","textPreview":"Roommate conflict is small enough to avoid and big enough to rot the apartment.","textChars":79,"textLines":1,"bbox":[72,132,820,52]}
+{"kind":"shape","id":"sh/9cvixcze","slide":2,"bbox":[92,234,18,18]}
+{"kind":"textbox","id":"sh/yd0z6103","slide":2,"text":"People rehearse what to say in their heads, then still freeze at the door.","textPreview":"People rehearse what to say in their heads, then still freeze at the door.","textChars":74,"textLines":1,"bbox":[126,226,470,48]}
+{"kind":"shape","id":"sh/rytsvu9k","slide":2,"bbox":[92,308,18,18]}
+{"kind":"textbox","id":"sh/bi9s36hc","slide":2,"text":"Advice apps feel too clinical; comedy lowers the stakes enough to practice.","textPreview":"Advice apps feel too clinical; comedy lowers the stakes enough to practice.","textChars":75,"textLines":1,"bbox":[126,300,470,48]}
+{"kind":"shape","id":"sh/ixczed8v","slide":2,"bbox":[92,382,18,18]}
+{"kind":"textbox","id":"sh/tovahoza","slide":2,"text":"The best demo conflict is instantly legible: the exploded freezer Coke incident.","textPreview":"The best demo conflict is instantly legible: the exploded freezer Coke incident.","textChars":80,"textLines":1,"bbox":[126,374,470,48]}
+{"kind":"shape","id":"sh/032lszqt","slide":2,"bbox":[702,214,384,254]}
+{"kind":"textbox","id":"sh/bulwval8","slide":2,"text":"One Sentence","textPreview":"One Sentence","textChars":12,"textLines":1,"bbox":[730,242,330,40]}
+{"kind":"textbox","id":"sh/i9s36hcr","slide":2,"text":"A funny AI practice arena for confronting your roommate without losing your mind.","textPreview":"A funny AI practice arena for confronting your roommate without losing your mind.","textChars":81,"textLines":1,"bbox":[748,312,294,96]}
+{"kind":"shape","id":"sh/p0bi9s36","slide":2,"bbox":[673,525,468,42]}
+{"kind":"shape","id":"sh/0fepkzup","slide":2,"bbox":[668,520,468,42]}
+{"kind":"textbox","id":"sh/byhgn29g","slide":2,"text":"VALUE: PRACTICE, NOT PUNISHMENT","textPreview":"VALUE: PRACTICE, NOT PUNISHMENT","textChars":31,"textLines":1,"bbox":[682,528,440,26]}
+{"kind":"notes","id":"nt/8rxqq9","slide":2,"text":""}
+{"kind":"slide","id":"sl/9x3t4b","slide":3,"title":"FIZZBUZZ / HACKATHON DEMO","textShapes":27}
+{"kind":"shape","id":"sh/adsji5sn","slide":3,"bbox":[26,24,1228,672]}
+{"kind":"shape","id":"sh/h4byhgn2","slide":3,"bbox":[909,47,300,42]}
+{"kind":"shape","id":"sh/sji5snel","slide":3,"bbox":[904,42,300,42]}
+{"kind":"textbox","id":"sh/3m94fu18","slide":3,"text":"FIZZBUZZ / HACKATHON DEMO","textPreview":"FIZZBUZZ / HACKATHON DEMO","textChars":25,"textLines":1,"bbox":[918,50,272,26]}
+{"kind":"textbox","id":"sh/a5gbq1or","slide":3,"text":"Live Demo Flow","textPreview":"Live Demo Flow","textChars":14,"textLines":1,"bbox":[70,58,890,76]}
+{"kind":"textbox","id":"sh/lszqtcj6","slide":3,"text":"Judges can understand the loop in the first 20 seconds.","textPreview":"Judges can understand the loop in the first 20 seconds.","textChars":55,"textLines":1,"bbox":[72,132,820,52]}
+{"kind":"shape","id":"sh/s72x4nap","slide":3,"bbox":[85,237,160,122]}
+{"kind":"shape","id":"sh/zidonyd0","slide":3,"bbox":[78,230,160,122]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":3,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[96,241,54,54]}
+{"kind":"textbox","id":"sh/8nqxs72x","slide":3,"text":"Case","textPreview":"Case","textChars":4,"textLines":1,"bbox":[152,248,76,35]}
+{"kind":"textbox","id":"sh/18jqh0fe","slide":3,"text":"Coke crime","textPreview":"Coke crime","textChars":10,"textLines":1,"bbox":[94,298,128,42]}
+{"kind":"shape","id":"sh/qh0fepkz","slide":3,"bbox":[285,237,160,122]}
+{"kind":"shape","id":"sh/j2t83itg","slide":3,"bbox":[278,230,160,122]}
+{"kind":"textbox","id":"sh/8bat47y1","slide":3,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[296,241,54,54]}
+{"kind":"textbox","id":"sh/1w7mp0bi","slide":3,"text":"Photo","textPreview":"Photo","textChars":5,"textLines":1,"bbox":[352,248,76,35]}
+{"kind":"textbox","id":"sh/q5o7qpg3","slide":3,"text":"Roommate photo","textPreview":"Roommate photo","textChars":14,"textLines":1,"bbox":[294,298,128,42]}
+{"kind":"shape","id":"sh/jqh0fepk","slide":3,"bbox":[485,237,160,122]}
+{"kind":"shape","id":"sh/c3ylc7u5","slide":3,"bbox":[478,230,160,122]}
+{"kind":"textbox","id":"sh/1kre1w7m","slide":3,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[496,241,54,54]}
+{"kind":"textbox","id":"sh/58z25kb6","slide":3,"text":"Knock","textPreview":"Knock","textChars":5,"textLines":1,"bbox":[552,248,76,35]}
+{"kind":"textbox","id":"sh/gn29gr2p","slide":3,"text":"Door opens","textPreview":"Door opens","textChars":10,"textLines":1,"bbox":[494,298,128,42]}
+{"kind":"shape","id":"sh/n29gr2p8","slide":3,"bbox":[685,237,160,122]}
+{"kind":"shape","id":"sh/yhgn29gr","slide":3,"bbox":[678,230,160,122]}
+{"kind":"textbox","id":"sh/5wjudg7a","slide":3,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[696,241,54,54]}
+{"kind":"textbox","id":"sh/gbq1oryt","slide":3,"text":"Speak","textPreview":"Speak","textChars":5,"textLines":1,"bbox":[752,248,76,35]}
+{"kind":"textbox","id":"sh/nuxc3ylc","slide":3,"text":"Speak live","textPreview":"Speak live","textChars":10,"textLines":1,"bbox":[694,298,128,42]}
+{"kind":"shape","id":"sh/y90je9cv","slide":3,"bbox":[885,237,160,122]}
+{"kind":"shape","id":"sh/5sneloj2","slide":3,"bbox":[878,230,160,122]}
+{"kind":"textbox","id":"sh/cbulwval","slide":3,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[896,241,54,54]}
+{"kind":"textbox","id":"sh/q1orytsv","slide":3,"text":"Dodge","textPreview":"Dodge","textChars":5,"textLines":1,"bbox":[952,248,76,35]}
+{"kind":"textbox","id":"sh/fmlkjm1c","slide":3,"text":"AI dodges","textPreview":"AI dodges","textChars":9,"textLines":1,"bbox":[894,298,128,42]}
+{"kind":"shape","id":"sh/87ed8bat","slide":3,"bbox":[1085,237,160,122]}
+{"kind":"shape","id":"sh/xs72x4na","slide":3,"bbox":[1078,230,160,122]}
+{"kind":"textbox","id":"sh/qtcj6tov","slide":3,"text":"6","textPreview":"6","textChars":1,"textLines":1,"bbox":[1096,241,54,54]}
+{"kind":"textbox","id":"sh/je9cvixc","slide":3,"text":"Card","textPreview":"Card","textChars":4,"textLines":1,"bbox":[1152,248,76,35]}
+{"kind":"textbox","id":"sh/8z25kb6x","slide":3,"text":"Fight card","textPreview":"Fight card","textChars":10,"textLines":1,"bbox":[1094,298,128,42]}
+{"kind":"textbox","id":"sh/1gvy90je","slide":3,"text":"Audience Sees","textPreview":"Audience Sees","textChars":13,"textLines":1,"bbox":[100,424,390,42]}
+{"kind":"shape","id":"sh/qpg3ex0n","slide":3,"bbox":[112,510,18,18]}
+{"kind":"textbox","id":"sh/fa9w3m94","slide":3,"text":"Animated door transition keeps the demo theatrical.","textPreview":"Animated door transition keeps the demo theatrical.","textChars":51,"textLines":1,"bbox":[146,502,470,48]}
+{"kind":"shape","id":"sh/z61032ls","slide":3,"bbox":[112,582,18,18]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":3,"text":"Deepgram captions make the sponsor integration visible.","textPreview":"Deepgram captions make the sponsor integration visible.","textChars":55,"textLines":1,"bbox":[146,574,470,48]}
+{"kind":"textbox","id":"sh/hcrmhk3q","slide":3,"text":"Judges Remember","textPreview":"Judges Remember","textChars":15,"textLines":1,"bbox":[666,424,430,42]}
+{"kind":"shape","id":"sh/orytsvu9","slide":3,"bbox":[678,510,18,18]}
+{"kind":"textbox","id":"sh/zupwb2hw","slide":3,"text":"The product converts a tense real-life moment into structured practice.","textPreview":"The product converts a tense real-life moment into structured practice.","textChars":71,"textLines":1,"bbox":[712,502,470,48]}
+{"kind":"shape","id":"sh/a9w3m94f","slide":3,"bbox":[678,582,18,18]}
+{"kind":"textbox","id":"sh/h0fepkzu","slide":3,"text":"Every external API has a fallback, so the demo keeps moving.","textPreview":"Every external API has a fallback, so the demo keeps moving.","textChars":60,"textLines":1,"bbox":[712,574,470,48]}
+{"kind":"notes","id":"nt/9x3t4b","slide":3,"text":""}
+{"kind":"slide","id":"sl/z7sab4","slide":4,"title":"FIZZBUZZ / HACKATHON DEMO","textShapes":9}
+{"kind":"shape","id":"sh/5kb6xkf6","slide":4,"bbox":[26,24,1228,672]}
+{"kind":"shape","id":"sh/ytsvu9kn","slide":4,"bbox":[909,47,300,42]}
+{"kind":"shape","id":"sh/neloj2t8","slide":4,"bbox":[904,42,300,42]}
+{"kind":"textbox","id":"sh/cbulwval","slide":4,"text":"FIZZBUZZ / HACKATHON DEMO","textPreview":"FIZZBUZZ / HACKATHON DEMO","textChars":25,"textLines":1,"bbox":[918,50,272,26]}
+{"kind":"textbox","id":"sh/5sneloj2","slide":4,"text":"The Product Moment","textPreview":"The Product Moment","textChars":18,"textLines":1,"bbox":[70,58,890,76]}
+{"kind":"textbox","id":"sh/u54zidon","slide":4,"text":"The setup screen makes the joke and the job-to-be-done obvious.","textPreview":"The setup screen makes the joke and the job-to-be-done obvious.","textChars":63,"textLines":1,"bbox":[72,132,820,52]}
+{"kind":"shape","id":"sh/nqxs72x4","slide":4,"bbox":[88,194,670,420]}
+{"kind":"shape","id":"sh/gbq1oryt","slide":4,"bbox":[78,184,670,420]}
+{"kind":"textbox","id":"sh/54zidony","slide":4,"text":"Setup gives the AI context","textPreview":"Setup gives the AI context","textChars":26,"textLines":1,"bbox":[798,210,330,36]}
+{"kind":"shape","id":"sh/cj6tovah","slide":4,"bbox":[810,292,18,18]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":4,"text":"Conflict description","textPreview":"Conflict description","textChars":20,"textLines":1,"bbox":[844,284,470,48]}
+{"kind":"shape","id":"sh/udg7adsj","slide":4,"bbox":[810,350,18,18]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":4,"text":"Photo evidence","textPreview":"Photo evidence","textChars":14,"textLines":1,"bbox":[844,342,470,48]}
+{"kind":"shape","id":"sh/cvixczed","slide":4,"bbox":[810,408,18,18]}
+{"kind":"textbox","id":"sh/nap4r65w","slide":4,"text":"Evidence + aggro sliders","textPreview":"Evidence + aggro sliders","textChars":24,"textLines":1,"bbox":[844,400,470,48]}
+{"kind":"shape","id":"sh/upwb2hwf","slide":4,"bbox":[810,466,18,18]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":4,"text":"Voice style selection","textPreview":"Voice style selection","textChars":21,"textLines":1,"bbox":[844,458,470,48]}
+{"kind":"shape","id":"sh/c7u54zid","slide":4,"bbox":[795,553,346,42]}
+{"kind":"shape","id":"sh/oza1gvy9","slide":4,"bbox":[790,548,346,42]}
+{"kind":"textbox","id":"sh/hk3q5o7q","slide":4,"text":"COMEDY UI WITH REAL INPUTS","textPreview":"COMEDY UI WITH REAL INPUTS","textChars":26,"textLines":1,"bbox":[804,556,318,26]}
+{"kind":"image","id":"im/4vmtwra5","slide":4,"name":"","alt":"FizzBuzz setup screen","bbox":[84,190,658,408]}
+{"kind":"notes","id":"nt/z7sab4","slide":4,"text":""}
+{"kind":"slide","id":"sl/q9v0se","slide":5,"title":"FIZZBUZZ / HACKATHON DEMO","textShapes":9}
+{"kind":"shape","id":"sh/u54zidon","slide":5,"bbox":[26,24,1228,672]}
+{"kind":"shape","id":"sh/5sneloj2","slide":5,"bbox":[909,47,300,42]}
+{"kind":"shape","id":"sh/cbulwval","slide":5,"bbox":[904,42,300,42]}
+{"kind":"textbox","id":"sh/neloj2t8","slide":5,"text":"FIZZBUZZ / HACKATHON DEMO","textPreview":"FIZZBUZZ / HACKATHON DEMO","textChars":25,"textLines":1,"bbox":[918,50,272,26]}
+{"kind":"textbox","id":"sh/ytsvu9kn","slide":5,"text":"Confrontation Loop","textPreview":"Confrontation Loop","textChars":18,"textLines":1,"bbox":[70,58,890,76]}
+{"kind":"textbox","id":"sh/5kb6xkf6","slide":5,"text":"Speech turns become boss-battle progress and coaching signals.","textPreview":"Speech turns become boss-battle progress and coaching signals.","textChars":62,"textLines":1,"bbox":[72,132,820,52]}
+{"kind":"shape","id":"sh/czed8v6p","slide":5,"bbox":[82,186,672,430]}
+{"kind":"shape","id":"sh/n29gr2p8","slide":5,"bbox":[72,176,672,430]}
+{"kind":"textbox","id":"sh/kb6xkf6d","slide":5,"text":"Visible sponsor beats","textPreview":"Visible sponsor beats","textChars":21,"textLines":1,"bbox":[804,196,350,38]}
+{"kind":"shape","id":"sh/9w3m94fu","slide":5,"bbox":[816,268,290,46]}
+{"kind":"textbox","id":"sh/25kb6xkf","slide":5,"text":"Deepgram Referee","textPreview":"Deepgram Referee","textChars":16,"textLines":1,"bbox":[828,279,266,24]}
+{"kind":"shape","id":"sh/rqd4vmtw","slide":5,"bbox":[816,330,290,46]}
+{"kind":"textbox","id":"sh/kzupwb2h","slide":5,"text":"Aura TTS Roommate","textPreview":"Aura TTS Roommate","textChars":17,"textLines":1,"bbox":[828,341,266,24]}
+{"kind":"shape","id":"sh/9knih4by","slide":5,"bbox":[816,392,290,46]}
+{"kind":"textbox","id":"sh/2t83itgf","slide":5,"text":"Gemini Deflection Engine","textPreview":"Gemini Deflection Engine","textChars":24,"textLines":1,"bbox":[828,403,266,24]}
+{"kind":"shape","id":"sh/re1w7mp0","slide":5,"bbox":[816,454,290,46]}
+{"kind":"textbox","id":"sh/gvy90je9","slide":5,"text":"Pika Media Hook","textPreview":"Pika Media Hook","textChars":15,"textLines":1,"bbox":[828,465,266,24]}
+{"kind":"textbox","id":"sh/9gr2p8nq","slide":5,"text":"The UX turns latency and transcripts into part of the game, so technical state is readable on stage.","textPreview":"The UX turns latency and transcripts into part of the game, so technical state is readable on stage.","textChars":100,"textLines":1,"bbox":[800,542,370,66]}
+{"kind":"image","id":"im/fmlkjm1c","slide":5,"name":"","alt":"FizzBuzz hallway boss battle screen after door opens","bbox":[78,182,660,418]}
+{"kind":"notes","id":"nt/q9v0se","slide":5,"text":""}
+{"kind":"slide","id":"sl/qpnqqb","slide":6,"title":"FIZZBUZZ / HACKATHON DEMO","textShapes":11}
+{"kind":"shape","id":"sh/za1gvy90","slide":6,"bbox":[26,24,1228,672]}
+{"kind":"shape","id":"sh/svu9knih","slide":6,"bbox":[909,47,300,42]}
+{"kind":"shape","id":"sh/hgn29gr2","slide":6,"bbox":[904,42,300,42]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":6,"text":"FIZZBUZZ / HACKATHON DEMO","textPreview":"FIZZBUZZ / HACKATHON DEMO","textChars":25,"textLines":1,"bbox":[918,50,272,26]}
+{"kind":"textbox","id":"sh/zidonyd0","slide":6,"text":"Architecture","textPreview":"Architecture","textChars":12,"textLines":1,"bbox":[70,58,890,76]}
+{"kind":"textbox","id":"sh/s36hcrmh","slide":6,"text":"One Express/Vite app, multiple AI services, fallbacks everywhere.","textPreview":"One Express/Vite app, multiple AI services, fallbacks everywhere.","textChars":65,"textLines":1,"bbox":[72,132,820,52]}
+{"kind":"shape","id":"sh/hoza1gvy","slide":6,"bbox":[242,302,80,0]}
+{"kind":"shape","id":"sh/a5gbq1or","slide":6,"bbox":[482,278,80,-52]}
+{"kind":"shape","id":"sh/3m94fu18","slide":6,"bbox":[482,326,80,52]}
+{"kind":"shape","id":"sh/zidonyd0","slide":6,"bbox":[722,226,80,0]}
+{"kind":"shape","id":"sh/a1gvy90j","slide":6,"bbox":[722,378,80,0]}
+{"kind":"shape","id":"sh/hoza1gvy","slide":6,"bbox":[962,226,60,52]}
+{"kind":"shape","id":"sh/s36hcrmh","slide":6,"bbox":[962,378,60,-52]}
+{"kind":"shape","id":"sh/za1gvy90","slide":6,"bbox":[89,249,160,96]}
+{"kind":"shape","id":"sh/ap4r65wj","slide":6,"bbox":[82,242,160,96]}
+{"kind":"textbox","id":"sh/hgn29gr2","slide":6,"text":"Browser UI","textPreview":"Browser UI","textChars":10,"textLines":1,"bbox":[94,265,136,54]}
+{"kind":"shape","id":"sh/svu9knih","slide":6,"bbox":[329,249,160,96]}
+{"kind":"shape","id":"sh/3ylc7u54","slide":6,"bbox":[322,242,160,96]}
+{"kind":"textbox","id":"sh/adsji5sn","slide":6,"text":"Express API","textPreview":"Express API","textChars":11,"textLines":1,"bbox":[334,265,136,54]}
+{"kind":"shape","id":"sh/idonyd0z","slide":6,"bbox":[569,173,160,96]}
+{"kind":"shape","id":"sh/byhgn29g","slide":6,"bbox":[562,166,160,96]}
+{"kind":"textbox","id":"sh/0je9cvix","slide":6,"text":"Deepgram\nSTT / Agent","textPreview":"Deepgram | STT / Agent","textChars":20,"textLines":2,"bbox":[574,189,136,54]}
+{"kind":"shape","id":"sh/t47y1kre","slide":6,"bbox":[569,325,160,96]}
+{"kind":"shape","id":"sh/il0rqd4v","slide":6,"bbox":[562,318,160,96]}
+{"kind":"textbox","id":"sh/b6xkf6dc","slide":6,"text":"Gemini\nDialogue","textPreview":"Gemini | Dialogue","textChars":15,"textLines":2,"bbox":[574,341,136,54]}
+{"kind":"shape","id":"sh/0rqd4vmt","slide":6,"bbox":[809,173,160,96]}
+{"kind":"shape","id":"sh/tcj6tova","slide":6,"bbox":[802,166,160,96]}
+{"kind":"textbox","id":"sh/ixczed8v","slide":6,"text":"Deepgram\nAura TTS","textPreview":"Deepgram | Aura TTS","textChars":17,"textLines":2,"bbox":[814,189,136,54]}
+{"kind":"shape","id":"sh/bi9s36hc","slide":6,"bbox":[809,325,160,96]}
+{"kind":"shape","id":"sh/h0fepkzu","slide":6,"bbox":[802,318,160,96]}
+{"kind":"textbox","id":"sh/sfil0rqd","slide":6,"text":"Pika\nVideo Hook","textPreview":"Pika | Video Hook","textChars":15,"textLines":2,"bbox":[814,341,136,54]}
+{"kind":"shape","id":"sh/zupwb2hw","slide":6,"bbox":[1029,249,160,96]}
+{"kind":"shape","id":"sh/a9w3m94f","slide":6,"bbox":[1022,242,160,96]}
+{"kind":"textbox","id":"sh/hcrmhk3q","slide":6,"text":"Boss Battle\nState","textPreview":"Boss Battle | State","textChars":17,"textLines":2,"bbox":[1034,265,136,54]}
+{"kind":"shape","id":"sh/orytsvu9","slide":6,"bbox":[411,551,468,42]}
+{"kind":"shape","id":"sh/z61032ls","slide":6,"bbox":[406,546,468,42]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":6,"text":"MOCK MODES KEEP THE LOOP ALIVE","textPreview":"MOCK MODES KEEP THE LOOP ALIVE","textChars":30,"textLines":1,"bbox":[420,554,440,26]}
+{"kind":"notes","id":"nt/qpnqqb","slide":6,"text":""}
+{"kind":"slide","id":"sl/59ivvn","slide":7,"title":"FIZZBUZZ / HACKATHON DEMO","textShapes":22}
+{"kind":"shape","id":"sh/h0fepkzu","slide":7,"bbox":[26,24,1228,672]}
+{"kind":"shape","id":"sh/a9w3m94f","slide":7,"bbox":[909,47,300,42]}
+{"kind":"shape","id":"sh/zupwb2hw","slide":7,"bbox":[904,42,300,42]}
+{"kind":"textbox","id":"sh/orytsvu9","slide":7,"text":"FIZZBUZZ / HACKATHON DEMO","textPreview":"FIZZBUZZ / HACKATHON DEMO","textChars":25,"textLines":1,"bbox":[918,50,272,26]}
+{"kind":"textbox","id":"sh/hcrmhk3q","slide":7,"text":"Demo Reliability","textPreview":"Demo Reliability","textChars":16,"textLines":1,"bbox":[70,58,890,76]}
+{"kind":"textbox","id":"sh/al87ed8b","slide":7,"text":"The live pitch survives missing keys, slow media generation, and mic weirdness.","textPreview":"The live pitch survives missing keys, slow media generation, and mic weirdness.","textChars":79,"textLines":1,"bbox":[72,132,820,52]}
+{"kind":"shape","id":"sh/z61032ls","slide":7,"bbox":[90,206,1098,352]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":7,"text":"Integration","textPreview":"Integration","textChars":11,"textLines":1,"bbox":[122,224,240,30]}
+{"kind":"textbox","id":"sh/hk3q5o7q","slide":7,"text":"Live path","textPreview":"Live path","textChars":9,"textLines":1,"bbox":[408,224,290,30]}
+{"kind":"textbox","id":"sh/hgn29gr2","slide":7,"text":"Fallback","textPreview":"Fallback","textChars":8,"textLines":1,"bbox":[778,224,290,30]}
+{"kind":"shape","id":"sh/svu9knih","slide":7,"bbox":[104,270,1068,42]}
+{"kind":"textbox","id":"sh/za1gvy90","slide":7,"text":"Gemini text","textPreview":"Gemini text","textChars":11,"textLines":1,"bbox":[122,276,250,28]}
+{"kind":"textbox","id":"sh/ap4r65wj","slide":7,"text":"Scenario-aware roommate lines","textPreview":"Scenario-aware roommate lines","textChars":29,"textLines":1,"bbox":[408,276,330,28]}
+{"kind":"textbox","id":"sh/hoza1gvy","slide":7,"text":"Canned excuse engine","textPreview":"Canned excuse engine","textChars":20,"textLines":1,"bbox":[778,276,350,28]}
+{"kind":"textbox","id":"sh/s36hcrmh","slide":7,"text":"Deepgram STT","textPreview":"Deepgram STT","textChars":12,"textLines":1,"bbox":[122,328,250,28]}
+{"kind":"textbox","id":"sh/zidonyd0","slide":7,"text":"Flux/Nova live transcript","textPreview":"Flux/Nova live transcript","textChars":25,"textLines":1,"bbox":[408,328,330,28]}
+{"kind":"textbox","id":"sh/a1gvy90j","slide":7,"text":"Browser speech recognition","textPreview":"Browser speech recognition","textChars":26,"textLines":1,"bbox":[778,328,350,28]}
+{"kind":"shape","id":"sh/lszqtcj6","slide":7,"bbox":[104,374,1068,42]}
+{"kind":"textbox","id":"sh/s72x4nap","slide":7,"text":"Deepgram TTS","textPreview":"Deepgram TTS","textChars":12,"textLines":1,"bbox":[122,380,250,28]}
+{"kind":"textbox","id":"sh/8z25kb6x","slide":7,"text":"Aura roommate voice","textPreview":"Aura roommate voice","textChars":19,"textLines":1,"bbox":[408,380,330,28]}
+{"kind":"textbox","id":"sh/1gvy90je","slide":7,"text":"Browser speech synthesis","textPreview":"Browser speech synthesis","textChars":24,"textLines":1,"bbox":[778,380,350,28]}
+{"kind":"textbox","id":"sh/qtcj6tov","slide":7,"text":"Gemini image","textPreview":"Gemini image","textChars":12,"textLines":1,"bbox":[122,432,250,28]}
+{"kind":"textbox","id":"sh/je9cvixc","slide":7,"text":"Forehead evidence edit","textPreview":"Forehead evidence edit","textChars":22,"textLines":1,"bbox":[408,432,330,28]}
+{"kind":"textbox","id":"sh/87ed8bat","slide":7,"text":"Original uploaded image","textPreview":"Original uploaded image","textChars":23,"textLines":1,"bbox":[778,432,350,28]}
+{"kind":"shape","id":"sh/xs72x4na","slide":7,"bbox":[104,478,1068,42]}
+{"kind":"textbox","id":"sh/q1orytsv","slide":7,"text":"Pika video","textPreview":"Pika video","textChars":10,"textLines":1,"bbox":[122,484,250,28]}
+{"kind":"textbox","id":"sh/fmlkjm1c","slide":7,"text":"Mood loops when key is available","textPreview":"Mood loops when key is available","textChars":32,"textLines":1,"bbox":[408,484,330,28]}
+{"kind":"textbox","id":"sh/8jqh0fep","slide":7,"text":"CSS yapping avatar","textPreview":"CSS yapping avatar","textChars":18,"textLines":1,"bbox":[778,484,350,28]}
+{"kind":"shape","id":"sh/x4nap4r6","slide":7,"bbox":[413,601,462,42]}
+{"kind":"shape","id":"sh/n29gr2p8","slide":7,"bbox":[408,596,462,42]}
+{"kind":"textbox","id":"sh/yhgn29gr","slide":7,"text":"TODAY: GEMINI + DEEPGRAM ON, PIKA OFF","textPreview":"TODAY: GEMINI + DEEPGRAM ON, PIKA OFF","textChars":37,"textLines":1,"bbox":[422,604,434,26]}
+{"kind":"notes","id":"nt/59ivvn","slide":7,"text":""}
+{"kind":"slide","id":"sl/xwfspf","slide":8,"title":"FIZZBUZZ / HACKATHON DEMO","textShapes":9}
+{"kind":"shape","id":"sh/upwb2hwf","slide":8,"bbox":[26,24,1228,672]}
+{"kind":"shape","id":"sh/5gbq1ory","slide":8,"bbox":[909,47,300,42]}
+{"kind":"shape","id":"sh/cvixczed","slide":8,"bbox":[904,42,300,42]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":8,"text":"FIZZBUZZ / HACKATHON DEMO","textPreview":"FIZZBUZZ / HACKATHON DEMO","textChars":25,"textLines":1,"bbox":[918,50,272,26]}
+{"kind":"textbox","id":"sh/udg7adsj","slide":8,"text":"60-Second Judge Script","textPreview":"60-Second Judge Script","textChars":22,"textLines":1,"bbox":[70,58,890,76]}
+{"kind":"textbox","id":"sh/54zidony","slide":8,"text":"Use this while the app is open beside the deck.","textPreview":"Use this while the app is open beside the deck.","textChars":47,"textLines":1,"bbox":[72,132,820,52]}
+{"kind":"shape","id":"sh/cj6tovah","slide":8,"bbox":[100,188,1040,54]}
+{"kind":"textbox","id":"sh/judg7ads","slide":8,"text":"1. We built a funny AI practice arena for one of the most common low-stakes high-friction conflicts: roommates.","textPreview":"1. We built a funny AI practice arena for one of the most common low-stakes high-friction conflicts: roommates.","textChars":111,"textLines":1,"bbox":[124,202,994,28]}
+{"kind":"shape","id":"sh/u9knih4b","slide":8,"bbox":[100,262,1040,54]}
+{"kind":"textbox","id":"sh/47y1kre1","slide":8,"text":"2. I enter the exploded Coke incident, set evidence and aggro, and knock on the roommate door.","textPreview":"2. I enter the exploded Coke incident, set evidence and aggro, and knock on the roommate door.","textChars":94,"textLines":1,"bbox":[124,276,994,28]}
+{"kind":"shape","id":"sh/tsvu9kni","slide":8,"bbox":[100,336,1040,54]}
+{"kind":"textbox","id":"sh/m1cfa9w3","slide":8,"text":"3. Deepgram listens to my spoken boundary; Gemini makes the roommate dodge responsibility in context.","textPreview":"3. Deepgram listens to my spoken boundary; Gemini makes the roommate dodge responsibility in context.","textChars":101,"textLines":1,"bbox":[124,350,994,28]}
+{"kind":"shape","id":"sh/bm58z25k","slide":8,"bbox":[100,410,1040,54]}
+{"kind":"textbox","id":"sh/4vmtwra5","slide":8,"text":"4. Aura TTS voices the roommate back, the boss HP moves, and the fight card summarizes my best line.","textPreview":"4. Aura TTS voices the roommate back, the boss HP moves, and the fight card summarizes my best line.","textChars":100,"textLines":1,"bbox":[124,424,994,28]}
+{"kind":"shape","id":"sh/tgfmlkjm","slide":8,"bbox":[100,484,1040,54]}
+{"kind":"textbox","id":"sh/mp0bi9s3","slide":8,"text":"5. The important part: it stays demoable with graceful fallbacks when an API is missing or slow.","textPreview":"5. The important part: it stays demoable with graceful fallbacks when an API is missing or slow.","textChars":96,"textLines":1,"bbox":[124,498,994,28]}
+{"kind":"shape","id":"sh/bat47y1k","slide":8,"bbox":[275,613,740,42]}
+{"kind":"shape","id":"sh/4nap4r65","slide":8,"bbox":[270,608,740,42]}
+{"kind":"textbox","id":"sh/t83itgfm","slide":8,"text":"CLOSE: PRACTICE REAL WORDS BEFORE REAL CONFLICT","textPreview":"CLOSE: PRACTICE REAL WORDS BEFORE REAL CONFLICT","textChars":47,"textLines":1,"bbox":[284,616,712,26]}
+{"kind":"notes","id":"nt/xwfspf","slide":8,"text":""}
