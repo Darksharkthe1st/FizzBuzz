@@ -46,6 +46,8 @@ const state = {
   voice: {
     active: false,
     mode: "idle",
+    sttMode: "",
+    sttModel: "",
     stream: null,
     recorder: null,
     socket: null,
@@ -224,6 +226,8 @@ async function startVoiceArgument() {
     const token = await postJson("/api/voice/token", {});
     console.info("[voice] Token endpoint response:", {
       mode: token.mode,
+      sttMode: token.sttMode,
+      sttModel: token.sttModel,
       hasToken: Boolean(token.token),
       hasListenUrl: Boolean(token.listenUrl),
       authProtocol: token.authProtocol,
@@ -243,7 +247,9 @@ async function startVoiceArgument() {
 
 async function startDeepgramVoice(token) {
   state.voice.mode = "deepgram";
-  console.info("[voice] Starting Deepgram voice mode.");
+  state.voice.sttMode = token.sttMode || "nova";
+  state.voice.sttModel = token.sttModel || "";
+  console.info(`[voice] Starting Deepgram voice mode. sttMode=${state.voice.sttMode} sttModel=${state.voice.sttModel}`);
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
       echoCancellation: true,
@@ -269,8 +275,29 @@ async function startDeepgramVoice(token) {
 
   socket.addEventListener("message", (event) => {
     if (state.voice.socket !== socket) return;
-    const data = JSON.parse(event.data);
-    if (data.type !== "Results") return;
+
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (error) {
+      console.error("[voice] Failed to parse a Deepgram websocket message; ignoring it.", {
+        raw: event.data,
+        error,
+      });
+      return;
+    }
+
+    if (data.type !== "Results") {
+      // Flux's turn-taking events ("Connected", "TurnInfo", etc.) use a
+      // different schema than this handler understands -- that wiring is
+      // Session 2's job. Logging them here now means the real event
+      // payloads are visible during manual testing instead of needing to
+      // re-run the standalone discovery script every time.
+      if (state.voice.sttMode === "flux") {
+        console.debug("[voice] Flux event (not yet handled by the game):", data);
+      }
+      return;
+    }
 
     const transcript = data.channel?.alternatives?.[0]?.transcript?.trim() || "";
     if (!transcript) return;
