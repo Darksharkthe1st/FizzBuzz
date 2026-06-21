@@ -53,6 +53,45 @@ const counterBank = [
   },
 ];
 
+const defensiveBank = [
+  {
+    trigger: ["always", "every time", "again"],
+    name: "Pattern Denial Parry",
+    line:
+      "Okay, 'always' is doing a heroic amount of work there. I did it, like, a spiritually different number of times.",
+  },
+  {
+    trigger: ["clean", "washed", "dishes", "trash"],
+    name: "Chore Jurisdiction Dodge",
+    line:
+      "I was literally entering the pre-cleaning mindset, and now this whole courtroom tone has reset my process.",
+  },
+  {
+    trigger: ["freezer", "coke", "cola", "exploded", "sticky"],
+    name: "Carbonation Innocence Plea",
+    line:
+      "The can made choices under pressure. I am not saying I am blameless, I am saying physics has been weirdly protected here.",
+  },
+  {
+    trigger: ["pay", "money", "rent", "bill"],
+    name: "Wallet Fog Machine",
+    line:
+      "I hear you saying money, but I need you to understand my bank app has been giving haunted-house energy.",
+  },
+  {
+    trigger: ["sorry", "apologize", "apology"],
+    name: "Apology Side Quest",
+    line:
+      "I can apologize, obviously. I just need us to define whether this is an apology-apology or a vibe apology.",
+  },
+  {
+    trigger: ["listen", "hearing", "said"],
+    name: "Listening Technicality",
+    line:
+      "I am listening. I am disagreeing while listening, which is actually two tasks, so you're welcome.",
+  },
+];
+
 async function loadDotEnv(filePath) {
   try {
     const text = await readFile(filePath, "utf8");
@@ -246,14 +285,13 @@ async function generateForeheadPortrait(payload) {
   };
 }
 
-function advanceArgument(sessionId) {
+function advanceArgument(sessionId, transcript = "") {
   const session = sessions.get(sessionId);
   if (!session) {
     return null;
   }
 
-  const counter = counterBank[session.exchange % counterBank.length];
-  const excuse = excuseBank[(session.exchange + session.aggro) % excuseBank.length];
+  const defensive = chooseDefensiveResponse(session, transcript);
   const damage = 10 + session.evidence * 3;
   const recoil = Math.max(3, session.aggro * 2 - session.evidence);
 
@@ -267,12 +305,126 @@ function advanceArgument(sessionId) {
     round: session.round,
     player: session.player,
     boss: session.boss,
-    attack: counter,
+    heard: truncateForDisplay(transcript, 180),
+    attack: defensive.attack,
     roommateLine:
       session.boss === 0
         ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
-        : excuse,
+        : defensive.roommateLine,
     complete: session.boss === 0,
+  };
+}
+
+function chooseDefensiveResponse(session, transcript) {
+  const heard = String(transcript || "").trim().replace(/\s+/g, " ");
+  const lowerHeard = heard.toLowerCase();
+  const matched = defensiveBank.find((entry) =>
+    entry.trigger.some((word) => lowerHeard.includes(word)),
+  );
+
+  if (matched) {
+    return {
+      attack: {
+        name: matched.name,
+        line: heard
+          ? `You said: "${truncateForDisplay(heard, 130)}"`
+          : "You inhaled like someone with a laminated chore chart.",
+      },
+      roommateLine: matched.line,
+    };
+  }
+
+  const counter = counterBank[session.exchange % counterBank.length];
+  const excuse = excuseBank[(session.exchange + session.aggro) % excuseBank.length];
+  return {
+    attack: {
+      name: counter.name,
+      line: heard
+        ? `You said: "${truncateForDisplay(heard, 130)}"`
+        : counter.line,
+    },
+    roommateLine: heard
+      ? `I heard "${truncateForDisplay(heard, 80)}," and honestly the accusation-to-context ratio is aggressive.`
+      : excuse,
+  };
+}
+
+function truncateForDisplay(value, limit) {
+  const text = String(value || "").trim().replace(/\s+/g, " ");
+  if (text.length <= limit) return text;
+  return `${text.slice(0, Math.max(0, limit - 3))}...`;
+}
+
+async function createDeepgramToken() {
+  const apiKey = process.env.DEEPGRAM_API_KEY;
+  const enabled = process.env.USE_DEEPGRAM === "true" && Boolean(apiKey);
+
+  if (!enabled) {
+    return {
+      status: 200,
+      body: {
+        mode: "mock",
+        token: null,
+        expiresIn: 0,
+        listenUrl: null,
+        message:
+          "Deepgram is in mock mode. Add DEEPGRAM_API_KEY and set USE_DEEPGRAM=true for live transcription.",
+      },
+    };
+  }
+
+  let response;
+  try {
+    response = await fetch("https://api.deepgram.com/v1/auth/grant", {
+      method: "POST",
+      headers: {
+        authorization: `Token ${apiKey}`,
+      },
+    });
+  } catch {
+    return {
+      status: 200,
+      body: {
+        mode: "mock",
+        token: null,
+        expiresIn: 0,
+        listenUrl: null,
+        message:
+          "Deepgram could not be reached, so FizzBuzz is using browser speech captions for this round.",
+        deepgramStatus: 0,
+      },
+    };
+  }
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok || !result.access_token) {
+    const deepgramMessage = result.err_msg || result.error?.message || result.error;
+    return {
+      status: 200,
+      body: {
+        mode: "mock",
+        token: null,
+        expiresIn: 0,
+        listenUrl: null,
+        message:
+          response.status === 403
+            ? "Deepgram rejected the API key or project permissions, so FizzBuzz is using browser speech captions for this round."
+            : deepgramMessage || "Deepgram token minting failed, so FizzBuzz is using browser speech captions for this round.",
+        deepgramStatus: response.status,
+      },
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      mode: "deepgram",
+      token: result.access_token,
+      expiresIn: result.expires_in || 30,
+      listenUrl:
+        "wss://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&interim_results=true&endpointing=550&utterance_end_ms=1000",
+    },
   };
 }
 
@@ -318,7 +470,7 @@ function createApp() {
   });
 
   app.post("/api/argue", (request, response) => {
-    const next = advanceArgument(request.body?.sessionId);
+    const next = advanceArgument(request.body?.sessionId, request.body?.transcript);
     if (!next) {
       response.status(404).json({ error: "Unknown confrontation session" });
       return;
@@ -326,12 +478,9 @@ function createApp() {
     response.json(next);
   });
 
-  app.post("/api/voice/token", (request, response) => {
-    response.json({
-      mode: process.env.USE_DEEPGRAM === "true" ? "deepgram" : "mock",
-      token: null,
-      message: "Deepgram token minting hook is ready. Add DEEPGRAM_API_KEY and implement server-side token creation here.",
-    });
+  app.post("/api/voice/token", async (request, response) => {
+    const token = await createDeepgramToken();
+    response.status(token.status).json(token.body);
   });
 
   app.post("/api/media/avatar", (request, response) => {

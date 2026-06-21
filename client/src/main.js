@@ -19,6 +19,9 @@ const knockText = document.querySelector("#knockText");
 const speakButton = document.querySelector("#speakButton");
 const resetButton = document.querySelector("#resetButton");
 const subtitleLine = document.querySelector("#subtitleLine");
+const voiceTranscript = document.querySelector("#voiceTranscript");
+const voiceStatus = document.querySelector("#voiceStatus");
+const voiceMeter = document.querySelector("#voiceMeter");
 const attackName = document.querySelector("#attackName");
 const attackCaption = document.querySelector("#attackCaption");
 const roundBadge = document.querySelector("#roundBadge");
@@ -40,6 +43,17 @@ const state = {
   exchange: 0,
   evidence: 4,
   aggro: 3,
+  voice: {
+    active: false,
+    mode: "idle",
+    stream: null,
+    recorder: null,
+    socket: null,
+    recognizer: null,
+    finalTranscript: "",
+    interimTranscript: "",
+    processing: false,
+  },
 };
 
 async function postJson(path, payload) {
@@ -55,6 +69,217 @@ async function postJson(path, payload) {
     throw new Error(details.error || details.message || `Request failed: ${response.status}`);
   }
   return response.json();
+}
+
+function setVoiceUi(status, transcript = "") {
+  voiceStatus.textContent = status;
+  voiceTranscript.textContent = transcript || "Listening for a usable grievance...";
+}
+
+function setVoiceActive(isActive) {
+  state.voice.active = isActive;
+  speakButton.textContent = isActive ? "Stop arguing" : "Argue live";
+  hallwaySet.classList.toggle("is-listening", isActive);
+  voiceMeter.style.width = isActive ? "72%" : "12%";
+}
+
+function getSpeechRecognition() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function getRecorderMimeType() {
+  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+}
+
+async function startVoiceArgument() {
+  if (state.voice.active || state.voice.processing) return;
+
+  setVoiceActive(true);
+  state.voice.finalTranscript = "";
+  state.voice.interimTranscript = "";
+  setVoiceUi("Requesting mic access. The hallway stenographer is cracking knuckles.");
+
+  try {
+    const token = await postJson("/api/voice/token", {});
+    if (token.mode === "deepgram" && token.token && token.listenUrl) {
+      await startDeepgramVoice(token);
+      return;
+    }
+    startBrowserSpeechFallback(token.message);
+  } catch (error) {
+    startBrowserSpeechFallback(error.message);
+  }
+}
+
+async function startDeepgramVoice(token) {
+  state.voice.mode = "deepgram";
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+  });
+  const socket = new WebSocket(token.listenUrl, ["token", token.token]);
+  const mimeType = getRecorderMimeType();
+  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+  state.voice.stream = stream;
+  state.voice.socket = socket;
+  state.voice.recorder = recorder;
+
+  socket.addEventListener("open", () => {
+    setVoiceUi("Deepgram is live. Start arguing before the roommate develops a new excuse.");
+    recorder.start(250);
+  });
+
+  socket.addEventListener("message", (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type !== "Results") return;
+
+    const transcript = data.channel?.alternatives?.[0]?.transcript?.trim() || "";
+    if (!transcript) return;
+
+    if (data.is_final) {
+      state.voice.finalTranscript = `${state.voice.finalTranscript} ${transcript}`.trim();
+    } else {
+      state.voice.interimTranscript = transcript;
+    }
+
+    const visibleTranscript = [state.voice.finalTranscript, state.voice.interimTranscript]
+      .filter(Boolean)
+      .join(" ");
+    setVoiceUi(
+      data.is_final ? "Heard that. The roommate is preparing an objection." : "Hearing you in real time...",
+      visibleTranscript,
+    );
+
+    if (data.speech_final) {
+      void resolveLiveArgument(state.voice.finalTranscript || transcript);
+    }
+  });
+
+  socket.addEventListener("close", () => {
+    if (state.voice.active) {
+      stopVoiceArgument(false);
+      setVoiceUi("Deepgram left the hallway. Try the mic again.");
+    }
+  });
+
+  socket.addEventListener("error", () => {
+    stopVoiceArgument(false);
+    setVoiceUi("Deepgram tripped over the doormat. Browser captions can still take a swing.");
+    startBrowserSpeechFallback();
+  });
+
+  recorder.addEventListener("dataavailable", (event) => {
+    if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+      socket.send(event.data);
+    }
+  });
+}
+
+function startBrowserSpeechFallback(reason = "") {
+  const SpeechRecognition = getSpeechRecognition();
+  if (!SpeechRecognition) {
+    stopVoiceArgument(false);
+    setVoiceUi(reason || "No Deepgram key and this browser does not expose speech captions.");
+    return;
+  }
+
+  state.voice.mode = "browser";
+  const recognizer = new SpeechRecognition();
+  recognizer.continuous = true;
+  recognizer.interimResults = true;
+  recognizer.lang = "en-US";
+  state.voice.recognizer = recognizer;
+
+  recognizer.addEventListener("result", (event) => {
+    let interim = "";
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const transcript = event.results[index][0].transcript.trim();
+      if (event.results[index].isFinal) {
+        state.voice.finalTranscript = `${state.voice.finalTranscript} ${transcript}`.trim();
+      } else {
+        interim = transcript;
+      }
+    }
+    state.voice.interimTranscript = interim;
+    setVoiceUi(
+      reason
+        ? "Mock voice mode: browser captions are listening while Deepgram waits for keys."
+        : "Browser captions are listening.",
+      [state.voice.finalTranscript, state.voice.interimTranscript].filter(Boolean).join(" "),
+    );
+
+    if (state.voice.finalTranscript) {
+      void resolveLiveArgument(state.voice.finalTranscript);
+    }
+  });
+
+  recognizer.addEventListener("end", () => {
+    if (state.voice.active && !state.voice.processing) {
+      stopVoiceArgument(false);
+      setVoiceUi("Mic stopped. The roommate is pretending that means they won.");
+    }
+  });
+
+  recognizer.start();
+  setVoiceUi(
+    reason
+      ? "Mock voice mode: browser captions are listening while Deepgram waits for keys."
+      : "Browser captions are listening.",
+  );
+}
+
+function stopVoiceArgument(shouldResolve = true) {
+  const transcript = state.voice.finalTranscript || state.voice.interimTranscript;
+  setVoiceActive(false);
+
+  if (state.voice.recorder?.state === "recording") {
+    state.voice.recorder.stop();
+  }
+  if (state.voice.socket?.readyState === WebSocket.OPEN) {
+    state.voice.socket.send(JSON.stringify({ type: "CloseStream" }));
+    state.voice.socket.close();
+  }
+  if (state.voice.recognizer) {
+    state.voice.recognizer.stop();
+  }
+  if (state.voice.stream) {
+    state.voice.stream.getTracks().forEach((track) => track.stop());
+  }
+
+  state.voice.stream = null;
+  state.voice.recorder = null;
+  state.voice.socket = null;
+  state.voice.recognizer = null;
+
+  if (shouldResolve) {
+    void resolveLiveArgument(transcript);
+  }
+}
+
+async function resolveLiveArgument(transcript) {
+  const heard = String(transcript || "").trim();
+  if (!heard || state.voice.processing) return;
+
+  state.voice.processing = true;
+  stopVoiceArgument(false);
+  setVoiceUi("Roommate heard you. Unfortunately, that made them more defensive.", heard);
+
+  try {
+    await advanceBattle(heard);
+  } finally {
+    state.voice.finalTranscript = "";
+    state.voice.interimTranscript = "";
+    state.voice.processing = false;
+    if (state.boss > 0) {
+      speakButton.disabled = false;
+      setVoiceUi("Mic ready for the next accusation.", "Say the next part out loud.");
+    }
+  }
 }
 
 function readFileAsDataUrl(file) {
@@ -226,9 +451,12 @@ prepForm.addEventListener("submit", async (event) => {
   state.boss = 100;
   state.exchange = 0;
   state.knocked = false;
+  stopVoiceArgument(false);
+  setVoiceUi("Mic is holstered until the door opens.", "Door closed. Grievance pending.");
   hallwaySet.classList.remove("is-open", "is-knocking");
   doorButton.disabled = false;
   speakButton.disabled = true;
+  speakButton.textContent = "Argue live";
   knockText.textContent = "Knock";
   updateBattleCopy();
   setHealth();
@@ -261,14 +489,23 @@ doorButton.addEventListener("click", () => {
     knockText.textContent = "Opened";
     subtitleLine.textContent = `"${state.roommateLine || `What? I was literally about to deal with ${shortTopic(state.argument)}.`}"`;
     speakButton.disabled = false;
+    setVoiceUi("Mic ready. Deepgram can now witness this domestic masterpiece.", "Say your opening argument.");
   }, 900);
 });
 
-speakButton.addEventListener("click", async () => {
+speakButton.addEventListener("click", () => {
+  if (state.voice.active) {
+    stopVoiceArgument(true);
+    return;
+  }
+  void startVoiceArgument();
+});
+
+async function advanceBattle(transcript = "") {
   if (state.sessionId) {
     try {
       speakButton.disabled = true;
-      const next = await postJson("/api/argue", { sessionId: state.sessionId });
+      const next = await postJson("/api/argue", { sessionId: state.sessionId, transcript });
       state.round = next.round;
       state.player = next.player;
       state.boss = next.boss;
@@ -284,6 +521,7 @@ speakButton.addEventListener("click", async () => {
       speakButton.disabled = next.complete;
       if (next.complete) {
         speakButton.textContent = "Grievance filed";
+        setVoiceUi("Case closed. The mic has nothing left to prove.", next.heard || transcript);
       }
       return;
     } catch {
@@ -314,12 +552,14 @@ speakButton.addEventListener("click", async () => {
     speakButton.disabled = true;
     speakButton.textContent = "Grievance filed";
   }
-});
+}
 
 resetButton.addEventListener("click", () => {
-  speakButton.textContent = "Escalate politely";
+  stopVoiceArgument(false);
+  speakButton.textContent = "Argue live";
   state.sessionId = "";
   state.roommateLine = "";
+  setVoiceUi("Mic is holstered until the door opens.", "New grievance, new hallway.");
   showScreen("prep");
   window.scrollTo({ top: 0, behavior: "smooth" });
 });

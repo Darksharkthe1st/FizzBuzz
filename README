@@ -34,9 +34,9 @@ API routes
 
 - `GET /api/health` - service status and integration flags.
 - `POST /api/session` - creates a confrontation session from `argument`, `evidence`, and `aggro`.
-- `POST /api/argue` - advances the boss battle for a `sessionId`.
+- `POST /api/argue` - advances the boss battle for a `sessionId`, optionally using a live `transcript`.
 - `POST /api/media/forehead` - turns an uploaded face into a wide-angle forehead boss portrait.
-- `POST /api/voice/token` - placeholder for Deepgram token minting.
+- `POST /api/voice/token` - mints a temporary Deepgram token for browser live transcription.
 - `POST /api/media/avatar` - placeholder for Pika avatar/video generation.
 
 Copy `.env.example` to `.env` when adding real keys.
@@ -47,4 +47,13 @@ are set:
 ```bash
 GEMINI_API_KEY=your_key_here
 USE_GEMINI_IMAGE=true
+```
+
+Voice mode uses Deepgram live transcription. The browser asks the backend for a short-lived
+token, opens a Deepgram Listen WebSocket, and streams mic audio while the transcript updates
+in the boss battle. It falls back to browser speech captions when Deepgram is off.
+
+```bash
+DEEPGRAM_API_KEY=your_key_here
+USE_DEEPGRAM=true
 ```
