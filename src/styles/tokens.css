@@ -1,0 +1,17 @@
+:root {
+  --coke-red:    #E3122B;
+  --coke-red-dk: #B00E22;
+  --ribbon:      #FFFFFF;
+  --cream:       #F7F3EC;
+  --ink:         #15100F;
+  --foam:        #FBE9D0;
+
+  --font-script:    'Pacifico', cursive;
+  --font-body:      'Inter', sans-serif;
+  --font-condensed: 'Archivo Narrow', sans-serif;
+
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   24px;
+  --radius-pill: 999px;
+}

@@ -1,0 +1,249 @@
+.scene {
+  min-height: 100vh;
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 28px;
+  overflow: hidden;
+}
+
+/* ─── Doorframe area ─── */
+.doorframeArea {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 20px;
+  position: relative;
+}
+
+.doorframe {
+  width: 300px;
+  height: 440px;
+  background: #1C1008;
+  border: 12px solid #3A2820;
+  border-bottom: none;
+  border-radius: 130px 130px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 24px #110c08,
+    0 0 80px rgba(0,0,0,0.8);
+}
+
+.roomAmbient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 55%;
+  background: radial-gradient(ellipse at 50% 0%, rgba(251,233,208,0.09) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ─── Roommate meme figure ─── */
+.roommate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: -14px;
+  transform-origin: bottom center;
+  transition: transform 0.1s;
+  position: relative;
+  z-index: 2;
+}
+
+.roommate.talking {
+  animation: yap 0.22s ease-in-out infinite alternate;
+}
+
+@keyframes yap {
+  from { transform: translateY(0) rotate(-1.5deg); }
+  to   { transform: translateY(-5px) rotate(1.5deg); }
+}
+
+/* Big head */
+.headWrap {
+  width: 210px;
+  height: 210px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid rgba(251,233,208,0.12);
+  box-shadow: 0 4px 40px rgba(0,0,0,0.6);
+  flex-shrink: 0;
+}
+
+.headImg {
+  width: 100%;
+  height: 130%;               /* crop into face */
+  object-fit: cover;
+  object-position: top center;
+  transform: scale(1.25);
+  transform-origin: top center;
+}
+
+.defaultHead {
+  font-size: 130px;
+  line-height: 1;
+  filter: drop-shadow(0 0 30px rgba(0,0,0,0.5));
+}
+
+/* Tiny squished body — creates the 0.5-zoom meme proportion */
+.body {
+  width: 64px;
+  height: 46px;
+  background: linear-gradient(180deg, #2e2e2e 0%, #1a1a1a 100%);
+  border-radius: 6px 6px 0 0;
+  margin-top: -10px;
+}
+
+/* ─── Video slot ─── */
+.videoSlot {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  pointer-events: none;
+}
+
+.yappingTag {
+  font-family: var(--font-condensed);
+  font-size: 10px;
+  color: rgba(251,233,208,0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%,100% { opacity: 0.25; }
+  50%      { opacity: 0.7; }
+}
+
+/* ─── Mood badge ─── */
+.moodBadge {
+  margin-top: 14px;
+  padding: 4px 14px;
+  background: rgba(227,18,43,0.15);
+  border: 1px solid rgba(227,18,43,0.3);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-condensed);
+  font-size: 11px;
+  color: rgba(227,18,43,0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* ─── Subtitles ─── */
+.subtitleBand {
+  width: 100%;
+  max-width: 620px;
+  min-height: 80px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.subtitle {
+  font-size: 19px;
+  color: white;
+  text-align: center;
+  line-height: 1.5;
+  background: rgba(0,0,0,0.65);
+  padding: 12px 22px;
+  border-radius: var(--radius-md);
+  animation: fadeUp 0.25s ease-out both;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.thinking {
+  font-family: var(--font-condensed);
+  font-size: 24px;
+  color: rgba(247,243,236,0.3);
+  letter-spacing: 0.3em;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,100% { opacity: 0.3; }
+  50%      { opacity: 0.8; }
+}
+
+/* ─── Input area ─── */
+.inputArea {
+  width: 100%;
+  max-width: 600px;
+  padding: 0 20px;
+}
+
+.form {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.input {
+  flex: 1;
+  padding: 14px 20px;
+  background: rgba(255,255,255,0.07);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-pill);
+  color: var(--cream);
+  font-size: 15px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.input::placeholder {
+  color: rgba(247,243,236,0.28);
+}
+
+.input:focus {
+  outline: none;
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.1);
+}
+
+.input:disabled {
+  opacity: 0.45;
+}
+
+.sendBtn {
+  padding: 14px 26px;
+  background: var(--coke-red);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-radius: var(--radius-pill);
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sendBtn:hover:not(:disabled) {
+  background: var(--coke-red-dk);
+  transform: translateY(-1px);
+}
+
+.sendBtn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.sendBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

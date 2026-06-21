@@ -1,0 +1,201 @@
+.scene {
+  min-height: 100vh;
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  perspective: 900px;
+  position: relative;
+}
+
+.ambient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 50% at 50% 40%, rgba(60,35,20,0.6) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ─── Corridor perspective ─── */
+.corridor {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 500px;
+}
+
+.floorLeft,
+.floorRight {
+  position: absolute;
+  bottom: -40px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.floorLeft {
+  left: 0;
+  border-width: 0 0 80px 200px;
+  border-color: transparent transparent rgba(255,255,255,0.03) transparent;
+}
+
+.floorRight {
+  right: 0;
+  border-width: 0 200px 80px 0;
+  border-color: transparent rgba(255,255,255,0.03) transparent transparent;
+}
+
+/* ─── Doorframe ─── */
+.doorframeOuter {
+  width: 260px;
+  height: 400px;
+  background: #221710;
+  border: 10px solid #3A2820;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  position: relative;
+  box-shadow:
+    -50px 0 0 10px #1a120e,
+    50px 0 0 10px #1a120e,
+    0 -20px 60px rgba(0,0,0,0.6);
+}
+
+/* Wall paneling around frame */
+.doorframeOuter::before,
+.doorframeOuter::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  bottom: 0;
+  width: 50px;
+  background: #1a120e;
+}
+.doorframeOuter::before { left: -60px; }
+.doorframeOuter::after  { right: -60px; }
+
+.doorframeInner {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px 2px 0 0;
+  overflow: hidden;
+  position: relative;
+  perspective: 600px;
+}
+
+/* ─── Door ─── */
+.door {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2;
+}
+
+.door.approach {
+  transform: rotateY(0deg);
+}
+
+.door.knocking {
+  animation: knock 0.38s ease-in-out 6;
+}
+
+.door.opening {
+  transform: rotateY(-78deg);
+}
+
+@keyframes knock {
+  0%,100% { transform: rotateY(0deg); }
+  40%      { transform: rotateY(-7deg); }
+}
+
+.doorSurface {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, #6B4530 0%, #3D2415 60%, #2A180E 100%);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 24px;
+}
+
+/* Door panel details */
+.panelTop,
+.panelBottom {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  border: 3px solid rgba(255,255,255,0.07);
+  border-radius: 4px;
+}
+
+.panelTop {
+  top: 20px;
+  height: 38%;
+}
+
+.panelBottom {
+  bottom: 24px;
+  height: 30%;
+}
+
+.knob {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f0d060, #b08828);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
+}
+
+/* ─── Room behind door ─── */
+.roomBehind {
+  position: absolute;
+  inset: 0;
+  background: #1C1008;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.roomGlow {
+  width: 80%;
+  height: 50%;
+  background: radial-gradient(ellipse, rgba(251,233,208,0.12) 0%, transparent 70%);
+  margin-top: 20%;
+}
+
+/* ─── Knock label ─── */
+.knockLabel {
+  position: absolute;
+  top: 35%;
+  font-family: var(--font-condensed);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--foam);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  animation: popFade 0.4s ease-out 0.15s both;
+  pointer-events: none;
+}
+
+@keyframes popFade {
+  0%  { opacity: 0; transform: translateY(-6px) scale(0.95); }
+  30% { opacity: 1; transform: translateY(0) scale(1.05); }
+  100%{ opacity: 0; transform: translateY(-10px) scale(1); }
+}
+
+/* ─── Status ─── */
+.status {
+  position: absolute;
+  bottom: 40px;
+  font-family: var(--font-condensed);
+  font-size: 13px;
+  color: rgba(247,243,236,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}

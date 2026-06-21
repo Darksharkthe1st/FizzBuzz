@@ -1,0 +1,207 @@
+.setup {
+  min-height: 100vh;
+  background: var(--cream);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Header ─── */
+.header {
+  padding: 18px 24px;
+  border-bottom: 2px solid rgba(227, 18, 43, 0.12);
+  text-align: center;
+  background: white;
+}
+
+.logo {
+  display: block;
+  font-family: var(--font-script);
+  font-size: 34px;
+  color: var(--coke-red);
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.logoSub {
+  display: block;
+  font-family: var(--font-condensed);
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(21,16,15,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-top: 4px;
+}
+
+/* ─── Main ─── */
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.card {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  width: 100%;
+  max-width: 580px;
+  box-shadow: 0 4px 32px rgba(21,16,15,0.09);
+  border: 1px solid rgba(21,16,15,0.06);
+}
+
+.heading {
+  font-family: var(--font-condensed);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.hint {
+  font-size: 15px;
+  color: rgba(21,16,15,0.55);
+  line-height: 1.55;
+  margin-bottom: 32px;
+}
+
+/* ─── Form ─── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.label {
+  display: block;
+  font-family: var(--font-condensed);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--coke-red);
+  margin-bottom: 10px;
+}
+
+.optional {
+  font-weight: 400;
+  color: rgba(21,16,15,0.4);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid rgba(21,16,15,0.14);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  color: var(--ink);
+  resize: vertical;
+  line-height: 1.6;
+  transition: border-color 0.15s;
+  background: var(--cream);
+}
+
+.textarea::placeholder {
+  color: rgba(21,16,15,0.35);
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--coke-red);
+  background: white;
+}
+
+/* ─── Upload zone ─── */
+.uploadZone {
+  width: 100%;
+  height: 160px;
+  border: 2px dashed rgba(21,16,15,0.18);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--cream);
+}
+
+.uploadZone:hover,
+.uploadZone:focus-visible {
+  border-color: var(--coke-red);
+  background: rgba(227,18,43,0.03);
+  outline: none;
+}
+
+.uploadZone:focus-visible {
+  box-shadow: 0 0 0 3px rgba(227,18,43,0.25);
+}
+
+.previewImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.uploadPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.uploadIcon {
+  font-size: 30px;
+}
+
+.uploadText {
+  font-family: var(--font-condensed);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.uploadSub {
+  font-size: 12px;
+  color: rgba(21,16,15,0.4);
+}
+
+.hiddenInput {
+  display: none;
+}
+
+/* ─── Submit ─── */
+.submit {
+  padding: 17px;
+  background: var(--coke-red);
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-radius: var(--radius-pill);
+  transition: background 0.15s, transform 0.1s;
+}
+
+.submit:hover:not(:disabled) {
+  background: var(--coke-red-dk);
+  transform: translateY(-2px);
+}
+
+.submit:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.submit:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
