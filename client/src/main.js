@@ -34,14 +34,12 @@ const {
   refereeTurnState,
   refereeConfidence,
   refereeLatency,
-  composureValue,
   turnStamp,
   attackName,
   attackCaption,
   roundBadge,
   bossTitle,
   floorNote,
-  playerHealth,
   bossHealth,
   conversationModeSelect,
   voiceStyleSelect,
@@ -1188,11 +1186,7 @@ function readFileAsDataUrl(file) {
 }
 
 function setHealth() {
-  const player = Math.max(0, Math.min(100, state.player));
   const boss = Math.max(0, Math.min(100, state.boss));
-  playerHealth.style.width = `${player}%`;
-  composureValue.textContent = `${Math.round(player)} HP`;
-  playerHealth.parentElement.classList.toggle("is-rattled", player <= 45);
   bossHealth.style.width = `${boss}%`;
 }
 
