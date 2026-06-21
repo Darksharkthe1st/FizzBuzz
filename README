@@ -34,9 +34,10 @@ API routes
 
 - `GET /api/health` - service status and integration flags.
 - `POST /api/session` - creates a confrontation session from `argument`, `evidence`, and `aggro`.
-- `POST /api/argue` - advances the boss battle for a `sessionId`, optionally using a live `transcript`.
+- `POST /api/argue` - advances the boss battle for a `sessionId`, using Gemini for transcript-aware roommate comebacks when available.
 - `POST /api/media/forehead` - turns an uploaded face into a wide-angle forehead boss portrait.
 - `POST /api/voice/token` - mints a temporary Deepgram token for browser live transcription.
+- `POST /api/voice/speak` - turns roommate lines into Deepgram TTS audio, with browser speech fallback.
 - `POST /api/media/avatar` - placeholder for Pika avatar/video generation.
 
 Copy `.env.example` to `.env` when adding real keys.
@@ -46,6 +47,9 @@ are set:
 
 ```bash
 GEMINI_API_KEY=your_key_here
+GEMINI_TEXT_MODEL=gemini-3.5-flash
+GEMINI_IMAGE_MODEL=gemini-3.1-flash-image
+USE_GEMINI_TEXT=true
 USE_GEMINI_IMAGE=true
 ```
 
@@ -56,4 +60,5 @@ in the boss battle. It falls back to browser speech captions when Deepgram is of
 ```bash
 DEEPGRAM_API_KEY=your_key_here
 USE_DEEPGRAM=true
+DEEPGRAM_TTS_MODEL=aura-2-thalia-en
 ```

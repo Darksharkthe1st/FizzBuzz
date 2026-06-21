@@ -54,6 +54,11 @@ const state = {
     interimTranscript: "",
     processing: false,
   },
+  tts: {
+    audio: null,
+    objectUrl: "",
+    speaking: false,
+  },
 };
 
 async function postJson(path, payload) {
@@ -66,6 +71,11 @@ async function postJson(path, payload) {
   });
   if (!response.ok) {
     const details = await response.json().catch(() => ({}));
+    console.error("[api] JSON request failed.", {
+      path,
+      status: response.status,
+      details,
+    });
     throw new Error(details.error || details.message || `Request failed: ${response.status}`);
   }
   return response.json();
@@ -92,6 +102,115 @@ function getRecorderMimeType() {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
+function cleanupDeepgramVoice(socket, stream, recorder, shouldCloseSocket = true) {
+  if (recorder?.state === "recording") {
+    recorder.stop();
+  }
+  if (shouldCloseSocket && socket?.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: "CloseStream" }));
+    socket.close();
+  }
+  stream?.getTracks().forEach((track) => track.stop());
+
+  if (state.voice.socket === socket) state.voice.socket = null;
+  if (state.voice.stream === stream) state.voice.stream = null;
+  if (state.voice.recorder === recorder) state.voice.recorder = null;
+}
+
+function stopRoommateSpeech() {
+  if (state.tts.audio) {
+    state.tts.audio.pause();
+    state.tts.audio.removeAttribute("src");
+    state.tts.audio.load();
+  }
+  if (state.tts.objectUrl) {
+    URL.revokeObjectURL(state.tts.objectUrl);
+  }
+  window.speechSynthesis?.cancel();
+  state.tts.audio = null;
+  state.tts.objectUrl = "";
+  state.tts.speaking = false;
+}
+
+function speakWithBrowserVoice(text) {
+  if (!("speechSynthesis" in window) || !window.SpeechSynthesisUtterance) {
+    console.error("[voice] Browser speech synthesis unavailable.");
+    return;
+  }
+
+  console.info("[voice] Speaking roommate line with browser speech synthesis.");
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.04;
+  utterance.pitch = 0.78;
+  utterance.volume = 1;
+  utterance.addEventListener("end", () => {
+    state.tts.speaking = false;
+    console.info("[voice] Browser speech synthesis ended.");
+  });
+  utterance.addEventListener("error", (event) => {
+    state.tts.speaking = false;
+    console.error("[voice] Browser speech synthesis error.", event);
+  });
+  state.tts.speaking = true;
+  window.speechSynthesis.speak(utterance);
+}
+
+async function speakRoommateLine(line) {
+  const text = String(line || "").replace(/^Roommate:\s*/i, "").replace(/^"|"$/g, "").trim();
+  if (!text) return;
+
+  stopRoommateSpeech();
+  console.info("[voice] Requesting roommate TTS.", { chars: text.length });
+
+  try {
+    const response = await fetch("/api/voice/speak", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ text }),
+    });
+    const contentType = response.headers.get("content-type") || "";
+
+    if (response.ok && contentType.startsWith("audio/")) {
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const audio = new Audio(objectUrl);
+      state.tts.audio = audio;
+      state.tts.objectUrl = objectUrl;
+      state.tts.speaking = true;
+      console.info("[voice] Playing Deepgram TTS audio.", {
+        bytes: blob.size,
+        contentType,
+        requestId: response.headers.get("dg-request-id"),
+        model: response.headers.get("dg-model-name"),
+      });
+      audio.addEventListener("ended", () => {
+        console.info("[voice] Deepgram TTS playback ended.");
+        stopRoommateSpeech();
+      });
+      audio.addEventListener("error", (event) => {
+        console.error("[voice] Deepgram TTS playback error; using browser speech.", event);
+        speakWithBrowserVoice(text);
+      });
+      await audio.play();
+      return;
+    }
+
+    const details = await response.json().catch(() => ({}));
+    console.warn("[voice] Deepgram TTS unavailable; using browser speech fallback.", {
+      status: response.status,
+      contentType,
+      details,
+    });
+    speakWithBrowserVoice(text);
+  } catch (error) {
+    console.error("[voice] TTS request failed; using browser speech fallback.", error);
+    speakWithBrowserVoice(text);
+  }
+}
+
 async function startVoiceArgument() {
   if (state.voice.active || state.voice.processing) return;
 
@@ -107,6 +226,7 @@ async function startVoiceArgument() {
       mode: token.mode,
       hasToken: Boolean(token.token),
       hasListenUrl: Boolean(token.listenUrl),
+      authProtocol: token.authProtocol,
       deepgramStatus: token.deepgramStatus,
       message: token.message,
     });
@@ -131,7 +251,8 @@ async function startDeepgramVoice(token) {
       autoGainControl: true,
     },
   });
-  const socket = new WebSocket(token.listenUrl, ["token", token.token]);
+  const authProtocol = token.authProtocol || "token";
+  const socket = new WebSocket(token.listenUrl, [authProtocol, token.token]);
   const mimeType = getRecorderMimeType();
   const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
 
@@ -140,12 +261,14 @@ async function startDeepgramVoice(token) {
   state.voice.recorder = recorder;
 
   socket.addEventListener("open", () => {
+    if (state.voice.socket !== socket) return;
     console.info("[voice] Deepgram websocket open; starting MediaRecorder.");
     setVoiceUi("Deepgram is live. Start arguing before the roommate develops a new excuse.");
     recorder.start(250);
   });
 
   socket.addEventListener("message", (event) => {
+    if (state.voice.socket !== socket) return;
     const data = JSON.parse(event.data);
     if (data.type !== "Results") return;
 
@@ -176,22 +299,30 @@ async function startDeepgramVoice(token) {
     }
   });
 
-  socket.addEventListener("close", () => {
-    console.warn("[voice] Deepgram websocket closed.");
+  socket.addEventListener("close", (event) => {
+    console.warn("[voice] Deepgram websocket closed.", {
+      code: event.code,
+      reason: event.reason,
+      wasClean: event.wasClean,
+    });
+    if (state.voice.socket !== socket) return;
     if (state.voice.active) {
-      stopVoiceArgument(false);
+      cleanupDeepgramVoice(socket, stream, recorder, false);
+      setVoiceActive(false);
       setVoiceUi("Deepgram left the hallway. Try the mic again.");
     }
   });
 
   socket.addEventListener("error", (event) => {
     console.error("[voice] Deepgram websocket error; falling back to browser speech.", event);
-    stopVoiceArgument(false);
+    if (state.voice.socket !== socket) return;
+    cleanupDeepgramVoice(socket, stream, recorder, false);
     setVoiceUi("Deepgram tripped over the doormat. Browser captions can still take a swing.");
     startBrowserSpeechFallback();
   });
 
   recorder.addEventListener("dataavailable", (event) => {
+    if (state.voice.socket !== socket) return;
     if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
       socket.send(event.data);
     }
@@ -209,13 +340,17 @@ function startBrowserSpeechFallback(reason = "") {
   }
 
   state.voice.mode = "browser";
+  setVoiceActive(true);
   const recognizer = new SpeechRecognition();
   recognizer.continuous = true;
   recognizer.interimResults = true;
   recognizer.lang = "en-US";
   state.voice.recognizer = recognizer;
+  let restartAttempts = 0;
+  let browserSpeechFatal = false;
 
   recognizer.addEventListener("result", (event) => {
+    restartAttempts = 0;
     let interim = "";
     for (let index = event.resultIndex; index < event.results.length; index += 1) {
       const transcript = event.results[index][0].transcript.trim();
@@ -239,38 +374,67 @@ function startBrowserSpeechFallback(reason = "") {
     }
   });
 
+  recognizer.addEventListener("error", (event) => {
+    console.error("[voice] Browser speech recognition error.", event);
+    browserSpeechFatal = ["audio-capture", "not-allowed", "service-not-allowed"].includes(event.error);
+    if (browserSpeechFatal) {
+      stopVoiceArgument(false);
+      setVoiceUi(event.message || "Browser captions could not access the mic.");
+    }
+  });
+
   recognizer.addEventListener("end", () => {
     console.warn("[voice] Browser speech recognition ended.");
     if (state.voice.active && !state.voice.processing) {
+      if (!browserSpeechFatal && restartAttempts < 2) {
+        restartAttempts += 1;
+        window.setTimeout(() => {
+          if (!state.voice.active || state.voice.processing || state.voice.recognizer !== recognizer) return;
+          try {
+            recognizer.start();
+            setVoiceUi(
+              reason
+                ? "Mock voice mode: browser captions are listening while Deepgram waits for keys."
+                : "Browser captions are listening.",
+            );
+          } catch (error) {
+            console.error("[voice] Browser speech recognition restart failed.", error);
+            stopVoiceArgument(false);
+            setVoiceUi(error.message || "Browser captions could not restart.");
+          }
+        }, 150);
+        return;
+      }
       stopVoiceArgument(false);
       setVoiceUi("Mic stopped. The roommate is pretending that means they won.");
     }
   });
 
-  recognizer.start();
-  setVoiceUi(
-    reason
-      ? "Mock voice mode: browser captions are listening while Deepgram waits for keys."
-      : "Browser captions are listening.",
-  );
+  try {
+    recognizer.start();
+    setVoiceUi(
+      reason
+        ? "Mock voice mode: browser captions are listening while Deepgram waits for keys."
+        : "Browser captions are listening.",
+    );
+  } catch (error) {
+    console.error("[voice] Browser speech recognition failed to start.", error);
+    stopVoiceArgument(false);
+    setVoiceUi(error.message || reason || "Browser captions could not start.");
+  }
 }
 
 function stopVoiceArgument(shouldResolve = true) {
   const transcript = state.voice.finalTranscript || state.voice.interimTranscript;
   setVoiceActive(false);
 
-  if (state.voice.recorder?.state === "recording") {
-    state.voice.recorder.stop();
-  }
-  if (state.voice.socket?.readyState === WebSocket.OPEN) {
-    state.voice.socket.send(JSON.stringify({ type: "CloseStream" }));
-    state.voice.socket.close();
-  }
+  cleanupDeepgramVoice(state.voice.socket, state.voice.stream, state.voice.recorder);
   if (state.voice.recognizer) {
-    state.voice.recognizer.stop();
-  }
-  if (state.voice.stream) {
-    state.voice.stream.getTracks().forEach((track) => track.stop());
+    try {
+      state.voice.recognizer.stop();
+    } catch (error) {
+      console.debug("[voice] Browser speech recognizer was already stopped.", error);
+    }
   }
 
   state.voice.stream = null;
@@ -439,11 +603,20 @@ foreheadButton.addEventListener("click", async () => {
   foreheadButton.disabled = true;
   foreheadButton.textContent = "Inflating...";
   foreheadStatus.textContent = "Asking Nano Banana to weaponize camera angle, gently.";
+  console.info("[image] Requesting forehead mode.", {
+    argumentChars: argumentInput.value.length,
+    imageDataUrlChars: state.photoDataUrl.length,
+  });
 
   try {
     const generated = await postJson("/api/media/forehead", {
       imageDataUrl: state.photoDataUrl,
       argument: argumentInput.value,
+    });
+    console.info("[image] Forehead mode response.", {
+      mode: generated.mode,
+      hasImage: Boolean(generated.imageUrl),
+      message: generated.message,
     });
 
     if (generated.imageUrl) {
@@ -455,6 +628,7 @@ foreheadButton.addEventListener("click", async () => {
       foreheadStatus.textContent = generated.message || "Forehead mode is ready, but needs an API key.";
     }
   } catch (error) {
+    console.error("[image] Forehead mode failed.", error);
     foreheadStatus.textContent = error.message || "Forehead inflation failed. The normal photo remains armed.";
   } finally {
     foreheadButton.disabled = false;
@@ -510,9 +684,12 @@ doorButton.addEventListener("click", () => {
     hallwaySet.classList.remove("is-knocking");
     hallwaySet.classList.add("is-open");
     knockText.textContent = "Opened";
-    subtitleLine.textContent = `"${state.roommateLine || `What? I was literally about to deal with ${shortTopic(state.argument)}.`}"`;
+    const opener =
+      state.roommateLine || `What? I was literally about to deal with ${shortTopic(state.argument)}.`;
+    subtitleLine.textContent = `"${opener}"`;
     speakButton.disabled = false;
     setVoiceUi("Mic ready. Deepgram can now witness this domestic masterpiece.", "Say your opening argument.");
+    void speakRoommateLine(opener);
   }, 900);
 });
 
@@ -538,6 +715,7 @@ async function advanceBattle(transcript = "") {
       subtitleLine.textContent = next.complete
         ? next.roommateLine
         : `Roommate: "${next.roommateLine}"`;
+      void speakRoommateLine(next.roommateLine);
       setHealth();
       bossHealth.parentElement.classList.add("damage-pop");
       window.setTimeout(() => bossHealth.parentElement.classList.remove("damage-pop"), 450);
@@ -568,6 +746,11 @@ async function advanceBattle(transcript = "") {
     state.boss === 0
       ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
       : `Roommate: "${excuse}"`;
+  void speakRoommateLine(
+    state.boss === 0
+      ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
+      : excuse,
+  );
   setHealth();
   bossHealth.parentElement.classList.add("damage-pop");
   window.setTimeout(() => bossHealth.parentElement.classList.remove("damage-pop"), 450);

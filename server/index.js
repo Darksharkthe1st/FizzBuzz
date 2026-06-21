@@ -201,8 +201,14 @@ async function generateForeheadPortrait(payload) {
   const apiKey = process.env.GEMINI_API_KEY;
   const image = parseDataUrl(payload.imageDataUrl);
   const prompt = createForeheadPrompt(payload.argument);
+  const model = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
+
+  console.info(
+    `[image] /api/media/forehead requested; USE_GEMINI_IMAGE=${process.env.USE_GEMINI_IMAGE}; keyPresent=${Boolean(apiKey)}; imageValid=${Boolean(image)}; model=${model}`,
+  );
 
   if (!image) {
+    console.error("[image] Forehead request did not include a valid data URL image.");
     return {
       status: 400,
       body: {
@@ -213,6 +219,7 @@ async function generateForeheadPortrait(payload) {
   }
 
   if (process.env.USE_GEMINI_IMAGE !== "true" || !apiKey) {
+    console.info("[image] Gemini image disabled or missing key; returning mock forehead response.");
     return {
       status: 202,
       body: {
@@ -225,39 +232,65 @@ async function generateForeheadPortrait(payload) {
     };
   }
 
-  const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-image:generateContent",
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: prompt },
-              {
-                inline_data: {
-                  mime_type: image.mimeType,
-                  data: image.data,
+  let response;
+  try {
+    console.info(
+      `[image] Requesting Gemini image edit; mimeType=${image.mimeType}; base64Chars=${image.data.length}; promptChars=${prompt.length}`,
+    );
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: image.mimeType,
+                    data: image.data,
+                  },
                 },
-              },
-            ],
-          },
-        ],
-      }),
-    },
-  );
+              ],
+            },
+          ],
+        }),
+      },
+    );
+  } catch (error) {
+    console.error("[image] Gemini image request failed before receiving a response.", {
+      name: error.name,
+      message: error.message,
+    });
+    return {
+      status: 502,
+      body: {
+        error: "Gemini image generation could not be reached.",
+        details: error.message,
+      },
+    };
+  }
 
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
+    console.error("[image] Gemini image request rejected.", {
+      status: response.status,
+      message: result.error?.message || "No Gemini error body.",
+      code: result.error?.code,
+      statusText: result.error?.status,
+    });
     return {
       status: response.status,
       body: {
         error: result.error?.message || "Gemini image generation failed.",
+        code: result.error?.code,
+        status: result.error?.status,
       },
     };
   }
@@ -267,14 +300,41 @@ async function generateForeheadPortrait(payload) {
   const inlineData = generated?.inlineData || generated?.inline_data;
 
   if (!inlineData?.data) {
+    const partSummary = parts.map((part) => ({
+      hasText: Boolean(part.text),
+      textPreview: part.text ? truncateForDisplay(part.text, 220) : "",
+      hasInlineData: Boolean(part.inlineData || part.inline_data),
+      inlineMimeType:
+        part.inlineData?.mimeType ||
+        part.inlineData?.mime_type ||
+        part.inline_data?.mimeType ||
+        part.inline_data?.mime_type ||
+        "",
+    }));
+    const candidate = result.candidates?.[0] || {};
+    console.error("[image] Gemini image response did not include image data.", {
+      finishReason: candidate.finishReason,
+      finishMessage: candidate.finishMessage,
+      partSummary,
+      promptFeedback: result.promptFeedback,
+      safetyRatings: candidate.safetyRatings,
+      usageMetadata: result.usageMetadata,
+    });
     return {
       status: 502,
       body: {
         error: "Gemini responded without an image.",
+        finishReason: candidate.finishReason,
+        finishMessage: candidate.finishMessage,
+        partSummary,
+        promptFeedback: result.promptFeedback,
       },
     };
   }
 
+  console.info(
+    `[image] Gemini forehead image ready; mimeType=${inlineData.mimeType || inlineData.mime_type || "image/png"}; base64Chars=${inlineData.data.length}`,
+  );
   return {
     status: 200,
     body: {
@@ -285,13 +345,14 @@ async function generateForeheadPortrait(payload) {
   };
 }
 
-function advanceArgument(sessionId, transcript = "") {
+async function advanceArgument(sessionId, transcript = "") {
   const session = sessions.get(sessionId);
   if (!session) {
     return null;
   }
 
-  const defensive = chooseDefensiveResponse(session, transcript);
+  const defensive =
+    (await generateGeminiArgumentTurn(session, transcript)) || chooseDefensiveResponse(session, transcript);
   const damage = 10 + session.evidence * 3;
   const recoil = Math.max(3, session.aggro * 2 - session.evidence);
 
@@ -353,6 +414,113 @@ function truncateForDisplay(value, limit) {
   const text = String(value || "").trim().replace(/\s+/g, " ");
   if (text.length <= limit) return text;
   return `${text.slice(0, Math.max(0, limit - 3))}...`;
+}
+
+function parseJsonObject(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start === -1 || end === -1 || end <= start) return null;
+    try {
+      return JSON.parse(raw.slice(start, end + 1));
+    } catch {
+      return null;
+    }
+  }
+}
+
+function createSpeechText(value) {
+  const text = String(value || "").trim().replace(/\s+/g, " ");
+  return truncateForDisplay(text, 1200);
+}
+
+function createRoommatePrompt(session, transcript) {
+  return [
+    "Return ONLY compact JSON. No markdown. No intro.",
+    'Format: {"attackName":"2-4 words","attackLine":"short summary","roommateLine":"one funny defensive comeback"}',
+    "Role: evasive, defensive, funny roommate boss. Clearly react to the user's exact complaint. Playful, non-threatening.",
+    `Topic: ${shortTopic(session.argument, 100)}`,
+    `Aggro:${session.aggro}/5 Evidence:${session.evidence}/5 Round:${session.round}`,
+    `User: ${truncateForDisplay(transcript, 260) || "(silence)"}`,
+  ].join("\n");
+}
+
+async function generateGeminiArgumentTurn(session, transcript) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const enabled =
+    process.env.USE_GEMINI_TEXT !== "false" && Boolean(apiKey) && Boolean(String(transcript || "").trim());
+  const model = process.env.GEMINI_TEXT_MODEL || "gemini-3.5-flash";
+
+  if (!enabled) {
+    console.info(
+      `[argue] Gemini text disabled; USE_GEMINI_TEXT=${process.env.USE_GEMINI_TEXT}; keyPresent=${Boolean(apiKey)}; transcriptPresent=${Boolean(String(transcript || "").trim())}`,
+    );
+    return null;
+  }
+
+  console.info(`[argue] Requesting Gemini roommate response; model=${model}; chars=${String(transcript).length}`);
+
+  let response;
+  try {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: createRoommatePrompt(session, transcript) }],
+            },
+          ],
+          generationConfig: {
+            temperature: 1.05,
+            topP: 0.9,
+            maxOutputTokens: 1024,
+          },
+        }),
+      },
+    );
+  } catch {
+    console.error("[argue] Gemini roommate response request failed before receiving a response.");
+    return null;
+  }
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error(
+      `[argue] Gemini roommate response rejected; status=${response.status}; message=${result.error?.message || "No Gemini error body."}`,
+    );
+    return null;
+  }
+
+  const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+  const parsed = parseJsonObject(generatedText);
+  if (!parsed?.roommateLine) {
+    console.error("[argue] Gemini roommate response was not usable JSON.", {
+      finishReason: result.candidates?.[0]?.finishReason,
+      generatedText,
+    });
+    return null;
+  }
+
+  console.info("[argue] Gemini roommate response ready.");
+  return {
+    attack: {
+      name: truncateForDisplay(parsed.attackName || "Deflection Burst", 48),
+      line: truncateForDisplay(parsed.attackLine || `You said: "${truncateForDisplay(transcript, 130)}"`, 180),
+    },
+    roommateLine: truncateForDisplay(parsed.roommateLine, 260),
+  };
 }
 
 async function createDeepgramToken() {
@@ -433,9 +601,110 @@ async function createDeepgramToken() {
     body: {
       mode: "deepgram",
       token: result.access_token,
+      authProtocol: "bearer",
       expiresIn: result.expires_in || 30,
       listenUrl:
         "wss://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&interim_results=true&endpointing=550&utterance_end_ms=1000",
+    },
+  };
+}
+
+async function synthesizeDeepgramSpeech(payload) {
+  const apiKey = process.env.DEEPGRAM_API_KEY;
+  const enabled = process.env.USE_DEEPGRAM === "true" && Boolean(apiKey);
+  const text = createSpeechText(payload.text);
+  const model = process.env.DEEPGRAM_TTS_MODEL || "aura-2-thalia-en";
+
+  console.info(
+    `[voice] /api/voice/speak requested; USE_DEEPGRAM=${process.env.USE_DEEPGRAM}; keyPresent=${Boolean(apiKey)}; chars=${text.length}; model=${model}`,
+  );
+
+  if (!text) {
+    return {
+      status: 400,
+      body: {
+        mode: "mock",
+        error: "No text was provided for TTS.",
+      },
+    };
+  }
+
+  if (!enabled) {
+    console.info("[voice] Deepgram TTS disabled or missing key; returning browser speech fallback.");
+    return {
+      status: 202,
+      body: {
+        mode: "mock",
+        message: "Deepgram TTS is disabled, so FizzBuzz is using browser speech synthesis.",
+      },
+    };
+  }
+
+  let response;
+  try {
+    console.info("[voice] Requesting Deepgram TTS audio from /v1/speak.");
+    response = await fetch(
+      `https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Token ${apiKey}`,
+          "content-type": "application/json",
+          accept: "audio/mpeg",
+        },
+        body: JSON.stringify({ text }),
+      },
+    );
+  } catch {
+    console.error("[voice] Deepgram TTS request failed before receiving a response.");
+    return {
+      status: 202,
+      body: {
+        mode: "mock",
+        message: "Deepgram TTS could not be reached, so FizzBuzz is using browser speech synthesis.",
+        deepgramStatus: 0,
+      },
+    };
+  }
+
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type") || "";
+    const bodyText = await response.text().catch(() => "");
+    let deepgramMessage = bodyText;
+    if (contentType.includes("application/json")) {
+      try {
+        const body = JSON.parse(bodyText);
+        deepgramMessage = body.err_msg || body.error?.message || body.error || bodyText;
+      } catch {
+        // Keep the raw response body for logging.
+      }
+    }
+    console.error(
+      `[voice] Deepgram TTS request rejected; status=${response.status}; message=${deepgramMessage || "No Deepgram error body."}`,
+    );
+    return {
+      status: 202,
+      body: {
+        mode: "mock",
+        message: "Deepgram TTS rejected the request, so FizzBuzz is using browser speech synthesis.",
+        deepgramStatus: response.status,
+        deepgramMessage,
+      },
+    };
+  }
+
+  const audio = Buffer.from(await response.arrayBuffer());
+  console.info(
+    `[voice] Deepgram TTS audio ready; bytes=${audio.length}; requestId=${response.headers.get("dg-request-id") || "none"}`,
+  );
+
+  return {
+    status: 200,
+    audio,
+    contentType: response.headers.get("content-type") || "audio/mpeg",
+    headers: {
+      "dg-request-id": response.headers.get("dg-request-id") || "",
+      "dg-model-name": response.headers.get("dg-model-name") || model,
     },
   };
 }
@@ -471,6 +740,7 @@ function createApp() {
       integrations: {
         openai: process.env.USE_OPENAI === "true",
         geminiImage: process.env.USE_GEMINI_IMAGE === "true" && Boolean(process.env.GEMINI_API_KEY),
+        geminiText: process.env.USE_GEMINI_TEXT !== "false" && Boolean(process.env.GEMINI_API_KEY),
         deepgram: process.env.USE_DEEPGRAM === "true",
         pika: process.env.USE_PIKA === "true",
       },
@@ -481,8 +751,8 @@ function createApp() {
     response.status(201).json(createSession(request.body || {}));
   });
 
-  app.post("/api/argue", (request, response) => {
-    const next = advanceArgument(request.body?.sessionId, request.body?.transcript);
+  app.post("/api/argue", async (request, response) => {
+    const next = await advanceArgument(request.body?.sessionId, request.body?.transcript);
     if (!next) {
       response.status(404).json({ error: "Unknown confrontation session" });
       return;
@@ -493,6 +763,21 @@ function createApp() {
   app.post("/api/voice/token", async (request, response) => {
     const token = await createDeepgramToken();
     response.status(token.status).json(token.body);
+  });
+
+  app.post("/api/voice/speak", async (request, response) => {
+    const speech = await synthesizeDeepgramSpeech(request.body || {});
+    if (speech.audio) {
+      response.status(speech.status);
+      response.setHeader("content-type", speech.contentType);
+      response.setHeader("cache-control", "no-store");
+      for (const [key, value] of Object.entries(speech.headers)) {
+        if (value) response.setHeader(key, value);
+      }
+      response.send(speech.audio);
+      return;
+    }
+    response.status(speech.status).json(speech.body);
   });
 
   app.post("/api/media/avatar", (request, response) => {
