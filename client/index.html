@@ -13,9 +13,27 @@
           <div class="fridge">
             <div class="freezer-label">Freezer Crimes Unit</div>
             <div class="cola-blast" aria-hidden="true">
-              <span></span>
-              <span></span>
-              <span></span>
+              <svg viewBox="0 0 100 250" xmlns="http://www.w3.org/2000/svg">
+                <!-- bottle body -->
+                <path d="M 39,20 L 61,20 L 64,28 C 75,42 83,60 83,84 L 83,165 C 83,190 77,205 77,228 L 77,244 L 23,244 L 23,228 C 23,205 17,190 17,165 L 17,84 C 17,60 25,42 36,28 Z"
+                      fill="#e33d2f" stroke="#17120d" stroke-width="6" stroke-linejoin="round"/>
+                <!-- cap -->
+                <rect x="33" y="0" width="34" height="23" rx="4" fill="#c22820" stroke="#17120d" stroke-width="6"/>
+                <line x1="36" y1="10" x2="64" y2="10" stroke="#e33d2f" stroke-width="2" stroke-linecap="round"/>
+                <!-- label band -->
+                <rect x="15" y="94" width="70" height="70" rx="3" fill="#fff8e7" stroke="#17120d" stroke-width="4"/>
+                <!-- FIZZ BUZZ text -->
+                <text x="50" y="124" font-family="Impact,'Arial Black',sans-serif" font-size="17" fill="#e33d2f" text-anchor="middle" font-weight="900">FIZZ</text>
+                <text x="50" y="153" font-family="Impact,'Arial Black',sans-serif" font-size="17" fill="#17120d" text-anchor="middle" font-weight="900">BUZZ</text>
+                <!-- coke-style wave -->
+                <path d="M 18,158 Q 34,150 50,158 Q 66,166 82,158" fill="none" stroke="#e33d2f" stroke-width="2.5"/>
+                <!-- shine -->
+                <path d="M 27,72 Q 28,110 27,148" fill="none" stroke="rgba(255,255,255,0.38)" stroke-width="7" stroke-linecap="round"/>
+                <!-- bubbles -->
+                <circle cx="63" cy="78" r="3.5" fill="rgba(255,255,255,0.5)"/>
+                <circle cx="69" cy="66" r="2.5" fill="rgba(255,255,255,0.4)"/>
+                <circle cx="60" cy="60" r="2" fill="rgba(255,255,255,0.3)"/>
+              </svg>
             </div>
             <label class="photo-evidence">
               <input id="roommatePhoto" type="file" accept="image/*" />
