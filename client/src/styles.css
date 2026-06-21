@@ -398,9 +398,8 @@ input[type="range"] {
 
 .battle-stage {
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(190px, 0.8fr) minmax(240px, 0.9fr) minmax(250px, 1fr);
-  gap: clamp(10px, 2vw, 22px);
+  display: flex;
+  justify-content: center;
   align-items: end;
 }
 
@@ -477,6 +476,7 @@ input[type="range"] {
 
 .door-zone {
   position: relative;
+  width: 100%;
   min-height: min(64vh, 560px);
   display: grid;
   place-items: end center;
@@ -485,6 +485,7 @@ input[type="range"] {
 
 .door {
   position: relative;
+  z-index: 1;
   width: min(100%, 330px);
   height: min(62vh, 500px);
   min-height: 360px;
@@ -579,15 +580,37 @@ input[type="range"] {
 }
 
 
-.boss-side {
-  transform: translateX(35px) scale(0.8);
-  opacity: 0.25;
-  transition: transform 500ms ease, opacity 500ms ease;
+
+.door-zone .roommate-avatar-wrap {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: min(100%, 330px);
+  height: min(62vh, 500px);
+  min-height: 360px;
+  aspect-ratio: unset;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 500ms ease;
 }
 
-.hallway-set.is-open .boss-side {
+.door-zone .roommate-avatar-wrap img,
+.door-zone .roommate-avatar-wrap video {
+  transform: none;
+  clip-path: none;
+}
+
+.door-zone .roommate-avatar-wrap .fallback-face {
+  clip-path: none;
+}
+
+.hallway-set.is-opening .door-zone .roommate-avatar-wrap,
+.hallway-set.is-open .door-zone .roommate-avatar-wrap {
   opacity: 1;
-  transform: translateX(0) scale(1);
+  transition: none;
 }
 
 .roommate-avatar-wrap {
@@ -613,7 +636,6 @@ input[type="range"] {
 }
 
 .roommate-avatar-wrap img {
-  animation: idle-breathe 2.4s ease-in-out infinite;
 }
 
 .roommate-avatar-wrap.has-image img {
@@ -663,7 +685,6 @@ input[type="range"] {
   border: 7px solid var(--ink);
   box-shadow: 9px 9px 0 var(--ink);
   clip-path: polygon(8% 0, 95% 6%, 87% 100%, 0 91%);
-  animation: idle-breathe 2.4s ease-in-out infinite;
 }
 
 .roommate-avatar-wrap.has-image .fallback-face {
@@ -893,8 +914,7 @@ input[type="range"] {
 }
 
 @media (max-width: 860px) {
-  .kitchen-set,
-  .battle-stage {
+  .kitchen-set {
     grid-template-columns: 1fr;
   }
 

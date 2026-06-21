@@ -80,36 +80,8 @@
           </div>
 
           <div class="battle-stage">
-            <aside class="player-side">
-              <div class="fighter-name">You</div>
-              <div class="health-wrap">
-                <span>Apartment Credibility</span>
-                <div class="health"><b id="playerHealth"></b></div>
-              </div>
-              <div class="attack-ticket">
-                <span>Your opener</span>
-                <strong id="attackName">Respectful Boundary Jab</strong>
-                <p id="attackCaption">A calm sentence with terrifying eye contact.</p>
-              </div>
-            </aside>
-
             <div class="door-zone" id="doorZone">
-              <button class="door" id="doorButton" type="button" aria-label="Knock on roommate door">
-                <span class="door-sign">Roommate Lair</span>
-                <span class="door-knob"></span>
-                <span class="knock-text" id="knockText">Knock</span>
-              </button>
-              <div class="floor-note" id="floorNote">Evidence bag: soggy and judgmental</div>
-            </div>
-
-            <aside class="boss-side" id="bossSide">
-              <div class="fighter-name" id="roommateName">Roommate</div>
-              <div class="health-wrap">
-                <span>Accountability Shield</span>
-                <div class="health boss"><b id="bossHealth"></b></div>
-              </div>
               <div class="roommate-avatar-wrap">
-                <div class="rage-aura"></div>
                 <video id="roommateVideo" autoplay loop muted playsinline></video>
                 <img id="bossPhoto" alt="Distorted roommate boss" />
                 <div class="fallback-face" id="fallbackFace" aria-hidden="true">
@@ -121,7 +93,20 @@
                   <span>Generating reactions…</span>
                 </div>
               </div>
-            </aside>
+              <button class="door" id="doorButton" type="button" aria-label="Knock on roommate door">
+                <span class="door-sign">Roommate Lair</span>
+                <span class="door-knob"></span>
+                <span class="knock-text" id="knockText">Knock</span>
+              </button>
+              <div class="floor-note" id="floorNote">Evidence bag: soggy and judgmental</div>
+            </div>
+          </div>
+
+          <div hidden aria-hidden="true" id="hiddenState">
+            <b id="playerHealth"></b>
+            <b id="bossHealth"></b>
+            <strong id="attackName">Respectful Boundary Jab</strong>
+            <p id="attackCaption">A calm sentence with terrifying eye contact.</p>
           </div>
 
           <div class="subtitle-rail" aria-live="polite">

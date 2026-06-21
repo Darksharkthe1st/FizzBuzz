@@ -727,10 +727,57 @@ prepForm.addEventListener("submit", async (event) => {
   }
 });
 
+function playKnockSound() {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  const ctx = new AudioCtx();
+
+  function knock(time) {
+    const osc = ctx.createOscillator();
+    const oscGain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(220, time);
+    osc.frequency.exponentialRampToValueAtTime(55, time + 0.1);
+    oscGain.gain.setValueAtTime(1.0, time);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+    osc.connect(oscGain);
+    oscGain.connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.18);
+
+    const noiseLen = Math.floor(ctx.sampleRate * 0.07);
+    const noiseBuffer = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < noiseLen; i++) {
+      noiseData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / noiseLen, 3);
+    }
+    const noiseSrc = ctx.createBufferSource();
+    noiseSrc.buffer = noiseBuffer;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = "bandpass";
+    noiseFilter.frequency.value = 700;
+    noiseFilter.Q.value = 0.7;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.55, time);
+    noiseSrc.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noiseSrc.start(time);
+    noiseSrc.stop(time + 0.07);
+  }
+
+  const now = ctx.currentTime + 0.01;
+  knock(now);
+  knock(now + 0.28);
+  knock(now + 0.56);
+  window.setTimeout(() => ctx.close(), 1500);
+}
+
 doorButton.addEventListener("click", () => {
   if (state.knocked) return;
   state.knocked = true;
   doorButton.disabled = true;
+  playKnockSound();
   hallwaySet.classList.add("is-knocking");
   knockText.textContent = "KNOCK KNOCK";
   subtitleLine.textContent = "The door absorbs the knock, considers deflecting, then panics.";
