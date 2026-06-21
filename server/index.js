@@ -209,15 +209,6 @@ async function generateForeheadPortrait(payload) {
             ],
           },
         ],
-        generationConfig: {
-          responseModalities: ["TEXT", "IMAGE"],
-          responseFormat: {
-            image: {
-              aspectRatio: "1:1",
-              imageSize: "1K",
-            },
-          },
-        },
       }),
     },
   );
