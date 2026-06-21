@@ -173,6 +173,27 @@
 
           <div class="boundary-meter" id="boundaryMeter" aria-live="polite">
             <span class="boundary-meter-title">Calm Boundary Meter</span>
+            <div class="sentiment-duel" id="sentimentDuel">
+              <div class="sentiment-fighter player">
+                <div class="sentiment-copy">
+                  <span>Your Sentiment</span>
+                  <strong id="playerSentimentLabel">Awaiting grievance</strong>
+                </div>
+                <div class="sentiment-bar" aria-label="Your sentiment meter">
+                  <b id="playerSentimentBar"></b>
+                </div>
+              </div>
+              <div class="sentiment-versus">VS</div>
+              <div class="sentiment-fighter boss">
+                <div class="sentiment-copy">
+                  <span>Boss Sentiment</span>
+                  <strong id="bossSentimentLabel">Deflection charging</strong>
+                </div>
+                <div class="sentiment-bar" aria-label="Boss sentiment meter">
+                  <b id="bossSentimentBar"></b>
+                </div>
+              </div>
+            </div>
             <div class="boundary-labels" id="boundaryLabels"></div>
             <p class="analysis-note" id="analysisNote"></p>
           </div>

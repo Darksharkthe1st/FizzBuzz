@@ -56,8 +56,14 @@ export function scoreBoundary(transcript, argument) {
 function localAnalysisFallback(text) {
   const lower = text.toLowerCase();
   let sentimentLabel = "calm";
-  if (/!{2,}|shut up|idiot|stupid|hate/.test(lower)) sentimentLabel = "heated";
-  else if (/sorry|whatever|fine\.?$/.test(lower)) sentimentLabel = "petty but valid";
+  let sentimentScore = 0.18;
+  if (/!{2,}|shut up|idiot|stupid|hate/.test(lower)) {
+    sentimentLabel = "heated";
+    sentimentScore = -0.78;
+  } else if (/sorry|whatever|fine\.?$/.test(lower)) {
+    sentimentLabel = "petty but valid";
+    sentimentScore = -0.28;
+  }
 
   let topicLabel = "general grievance";
   if (/rent|money|bill|pay|owe/.test(lower)) topicLabel = "money";
@@ -69,7 +75,7 @@ function localAnalysisFallback(text) {
   if (/sorry|apolog/.test(lower)) intentLabel = "seeking_apology";
   else if (/clean|fix|pay|stop|replace/.test(lower)) intentLabel = "requesting_cleanup";
 
-  return { sentimentLabel, topicLabel, intentLabel, summary: text, source: "local" };
+  return { sentimentLabel, sentimentScore, topicLabel, intentLabel, summary: text, source: "local" };
 }
 
 function mapDeepgramAnalysis(body, text) {
@@ -101,6 +107,7 @@ function mapDeepgramAnalysis(body, text) {
 
   return {
     sentimentLabel,
+    sentimentScore,
     topicLabel,
     intentLabel,
     summary: body.results?.summary?.text || text,

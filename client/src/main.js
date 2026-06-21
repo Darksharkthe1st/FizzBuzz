@@ -44,6 +44,10 @@ const {
   conversationModeSelect,
   voiceStyleSelect,
   previewVoiceButton,
+  playerSentimentLabel,
+  playerSentimentBar,
+  bossSentimentLabel,
+  bossSentimentBar,
   boundaryLabels,
   analysisNote,
   fightCardScreen,
@@ -647,6 +651,7 @@ async function scoreAgentBattle(transcript) {
     attackCaption.textContent = next.attack.line;
     roundBadge.textContent = next.complete ? "Victory: Accountability Located" : `Round ${state.round}`;
     renderBoundaryLabels(next.boundary);
+    renderSentimentDuel(next.sentimentDuel);
     renderAnalysisNote(next.analysis);
     setHealth();
     bossHealth.parentElement.classList.add("damage-pop");
@@ -1086,6 +1091,19 @@ function renderBoundaryLabels(boundary) {
   }
 }
 
+function renderSentimentDuel(duel) {
+  state.sentimentDuel = duel || null;
+  const player = duel?.user;
+  const boss = duel?.boss;
+  playerSentimentLabel.textContent = player?.label || "Awaiting grievance";
+  bossSentimentLabel.textContent = boss?.label || "Deflection charging";
+  playerSentimentBar.style.width = `${Math.max(0, Math.min(100, player?.value ?? 10))}%`;
+  bossSentimentBar.style.width = `${Math.max(0, Math.min(100, boss?.value ?? 18))}%`;
+  playerSentimentBar.parentElement.classList.toggle("is-hot", player?.label === "heated");
+  playerSentimentBar.parentElement.classList.toggle("is-petty", player?.label === "petty but valid");
+  bossSentimentBar.parentElement.classList.toggle("is-cornered", boss?.label === "cornered");
+}
+
 const analysisCopy = {
   setting_boundary: "setting a boundary",
   requesting_cleanup: "requesting cleanup",
@@ -1106,7 +1124,11 @@ function renderAnalysisNote(analysis) {
   const intent = analysisCopy[analysis.intentLabel] || analysis.intentLabel || "making a point";
   const topic = topicCopy[analysis.topicLabel] || analysis.topicLabel || "the situation";
   const sourceTag = analysis.source === "deepgram" ? "Deepgram Intelligence" : "Local read";
-  analysisNote.textContent = `${sourceTag}: ${analysis.sentimentLabel}, ${intent}, about ${topic}.`;
+  const score =
+    typeof analysis.sentimentScore === "number"
+      ? ` (${analysis.sentimentScore > 0 ? "+" : ""}${analysis.sentimentScore.toFixed(2)})`
+      : "";
+  analysisNote.textContent = `${sourceTag}: ${analysis.sentimentLabel}${score}, ${intent}, about ${topic}.`;
 }
 
 function formatPercent(value) {
@@ -1251,6 +1273,7 @@ prepForm.addEventListener("submit", async (event) => {
   stopRoommateSpeech();
   resetRefereePanel();
   renderBoundaryLabels(null);
+  renderSentimentDuel(null);
   renderAnalysisNote(null);
   setVoiceUi("Mic is holstered until the door opens.", "Door closed. Grievance pending.");
   hallwaySet.classList.remove("is-open", "is-knocking");
@@ -1327,6 +1350,7 @@ async function advanceBattle(transcript = "") {
         ? next.roommateLine
         : `Roommate: "${next.roommateLine}"`;
       renderBoundaryLabels(next.boundary);
+      renderSentimentDuel(next.sentimentDuel);
       renderAnalysisNote(next.analysis);
       // Fire the TTS request now (so playback starts as soon as it's ready)
       // but keep the rest of this turn's UI updates synchronous/instant --
@@ -1357,6 +1381,7 @@ async function advanceBattle(transcript = "") {
   }
 
   renderBoundaryLabels(null);
+  renderSentimentDuel(null);
   renderAnalysisNote(null);
   const counter = counters[state.exchange % counters.length];
   const excuse = excuses[(state.exchange + state.aggro) % excuses.length];
@@ -1394,6 +1419,7 @@ resetButton.addEventListener("click", () => {
   stopRoommateSpeech();
   resetRefereePanel();
   renderBoundaryLabels(null);
+  renderSentimentDuel(null);
   renderAnalysisNote(null);
   speakButton.textContent = "Argue live";
   state.sessionId = "";

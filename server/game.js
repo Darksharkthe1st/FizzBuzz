@@ -124,6 +124,40 @@ function buildFightCard(session) {
   };
 }
 
+function buildSentimentDuel(session, analysis, boundary) {
+  const userLabel = analysis?.sentimentLabel || "unreadable";
+  const userBase = userLabel === "heated" ? 30 : userLabel === "petty but valid" ? 50 : 66;
+  const userValue = clampNumber(
+    userBase + boundary.score * 1.4 + (boundary.escalation ? -18 : 0),
+    5,
+    100,
+    50,
+  );
+  const bossValue = clampNumber(
+    32 + session.aggro * 9 + session.boss * 0.22 - boundary.score * 0.85 + (userLabel === "heated" ? 12 : 0),
+    6,
+    100,
+    55,
+  );
+
+  let bossLabel = "rattled";
+  if (bossValue >= 78) bossLabel = "frothing denial";
+  else if (bossValue >= 58) bossLabel = "deflecting";
+  else if (bossValue < 34) bossLabel = "cornered";
+
+  return {
+    user: {
+      label: userLabel,
+      value: Math.round(userValue),
+      score: typeof analysis?.sentimentScore === "number" ? analysis.sentimentScore : null,
+    },
+    boss: {
+      label: bossLabel,
+      value: Math.round(bossValue),
+    },
+  };
+}
+
 function chooseDefensiveResponse(session, transcript) {
   const heard = String(transcript || "").trim().replace(/\s+/g, " ");
   const lowerHeard = heard.toLowerCase();
@@ -211,12 +245,14 @@ export function createGameService() {
     session.player = Math.max(0, session.player - recoil);
 
     const heard = truncateForDisplay(transcript, 180);
+    const sentimentDuel = buildSentimentDuel(session, analysis, boundary);
     session.turnLog.push({
       round: session.round,
       heard,
       confidence: typeof confidence === "number" ? confidence : null,
       boundaryScore: boundary.score,
       sentimentLabel: analysis?.sentimentLabel || null,
+      sentimentScore: analysis?.sentimentScore ?? null,
     });
 
     const complete = session.boss === 0;
@@ -231,11 +267,13 @@ export function createGameService() {
       analysis: analysis
         ? {
             sentimentLabel: analysis.sentimentLabel,
+            sentimentScore: analysis.sentimentScore,
             topicLabel: analysis.topicLabel,
             intentLabel: analysis.intentLabel,
             source: analysis.source,
           }
         : null,
+      sentimentDuel,
     };
 
     if (complete) {

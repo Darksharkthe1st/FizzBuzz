@@ -15,6 +15,7 @@ export function createInitialState() {
     conversationMode: "turn-style",
     voiceStyleId: "deeply-inconvenienced",
     lastFightCard: null,
+    sentimentDuel: null,
     voice: {
       active: false,
       mode: "idle",

@@ -1069,6 +1069,98 @@ input[type="range"] {
   font-size: 0.85rem;
 }
 
+.sentiment-duel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.sentiment-fighter {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  background: var(--cream);
+  border: 4px solid var(--ink);
+}
+
+.sentiment-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.sentiment-copy span,
+.sentiment-copy strong,
+.sentiment-versus {
+  text-transform: uppercase;
+}
+
+.sentiment-copy span {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 1000;
+  opacity: 0.75;
+}
+
+.sentiment-copy strong {
+  min-width: 0;
+  color: var(--blue);
+  font-size: clamp(0.95rem, 2.2vw, 1.35rem);
+  line-height: 0.95;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.sentiment-fighter.boss .sentiment-copy strong {
+  color: var(--tomato);
+}
+
+.sentiment-versus {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  padding: 0 8px;
+  color: var(--cream);
+  background: var(--ink);
+  border: 4px solid var(--ink);
+  font-size: 1.15rem;
+}
+
+.sentiment-bar {
+  height: 24px;
+  padding: 4px;
+  background: #fff;
+  border: 3px solid var(--ink);
+  overflow: hidden;
+}
+
+.sentiment-bar b {
+  display: block;
+  width: 10%;
+  height: 100%;
+  background: repeating-linear-gradient(90deg, var(--teal) 0 12px, #bce85c 12px 24px);
+  transition: width 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sentiment-fighter.boss .sentiment-bar b {
+  background: repeating-linear-gradient(90deg, var(--tomato) 0 12px, var(--mustard) 12px 24px);
+}
+
+.sentiment-bar.is-hot b {
+  background: repeating-linear-gradient(90deg, var(--tomato) 0 12px, #7d1f18 12px 24px);
+}
+
+.sentiment-bar.is-petty b {
+  background: repeating-linear-gradient(90deg, var(--purple) 0 12px, var(--mustard) 12px 24px);
+}
+
+.sentiment-bar.is-cornered b {
+  background: repeating-linear-gradient(90deg, var(--blue) 0 12px, var(--teal) 12px 24px);
+}
+
 .boundary-labels {
   display: flex;
   flex-wrap: wrap;
@@ -1194,8 +1286,13 @@ input[type="range"] {
 
 @media (max-width: 620px) {
   .voice-casting,
+  .sentiment-duel,
   .fightcard-stats,
   .fightcard-controls {
     grid-template-columns: 1fr;
+  }
+
+  .sentiment-versus {
+    min-height: 34px;
   }
 }
