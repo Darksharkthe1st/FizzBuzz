@@ -51,14 +51,16 @@ The intended tone is a comedy game: "Roommate Boss Battle", "Gaslight Speedrun",
 
 ## Current Baseline
 
-The repository already contains an Express + Vite app with a strong visual direction and a playable mock flow:
+The repository already contains an Express + Vite app with a strong visual direction and a playable demo flow:
 
-- `server/index.js` exposes `/api/session`, `/api/argue`, `/api/media/forehead`, `/api/voice/token`, and `/api/media/avatar`.
-- `client/src/main.js` supports scenario entry, photo upload, door knock animation, confrontation rounds, and mock battle state.
+- `server/index.js` exposes `/api/session`, `/api/argue`, `/api/media/forehead`, `/api/voice/token`, `/api/voice/speak`, `/api/media/avatar`, and `/api/health`.
+- `client/src/main.js` supports scenario entry, photo upload, door knock animation, confrontation rounds, browser/Deepgram speech input, roommate TTS playback, and a victory state.
 - `client/src/styles.css` establishes the comedy boss-battle visual language.
-- `README` documents local startup and current API routes.
+- `README` documents local startup, current API routes, environment variables, and mock-mode behavior.
+- `.env.example` exists for local integration setup.
+- `npm run check` and `npm run build` pass as of this roadmap update.
 
-The remaining work is mostly integration depth, demo polish, and documentation.
+The remaining work is mostly clean-checkout verification, final browser smoke testing, optional sponsor integration depth, and demo-script polish.
 
 ## Milestone 1: Lock The Demo Loop
 
@@ -66,9 +68,12 @@ Goal: one complete run should work every time, with or without sponsor API keys.
 
 - [ ] Confirm `npm install` and `npm run dev` work from a clean checkout.
 - [ ] Add a default exploded Coke scenario button or prefilled sample.
-- [ ] Ensure every user path has a useful fallback when an API key is missing.
-- [ ] Make the confrontation loop feel complete: setup, knock, argue, resolution.
-- [ ] Add a final outcome screen or clear victory state.
+  - Partially done: visible first-screen copy, placeholder text, and fallback topic make the Coke scenario legible. A one-click sample button or actual prefill is still remaining.
+- [x] Ensure every user path has a useful fallback when an API key is missing.
+  - Done for Gemini text, Gemini image, Deepgram STT, Deepgram TTS, and Pika avatar mock mode.
+- [x] Make the confrontation loop feel complete: setup, knock, argue, resolution.
+- [x] Add a final outcome screen or clear victory state.
+  - Done as `Victory: Accountability Located` / `Grievance filed` state when boss health reaches zero.
 - [ ] Smoke test desktop and mobile widths.
 
 Acceptance criteria:
@@ -81,8 +86,9 @@ Acceptance criteria:
 
 Goal: replace canned roommate responses with scenario-aware AI dialogue while preserving demo reliability.
 
-- [ ] Choose the LLM provider available to the team during the hackathon.
-- [ ] Add server-side environment variables for the LLM key and model.
+- [x] Choose the LLM provider available to the team during the hackathon.
+  - Current provider path is Gemini text, controlled by `GEMINI_API_KEY`, `GEMINI_TEXT_MODEL`, and `USE_GEMINI_TEXT`.
+- [x] Add server-side environment variables for the LLM key and model.
 - [ ] Create prompt templates for roommate personas:
   - deflective,
   - defensive,
@@ -90,9 +96,12 @@ Goal: replace canned roommate responses with scenario-aware AI dialogue while pr
   - fake-apologetic,
   - over-explainer.
 - [ ] Send scenario, evidence level, aggro level, and conversation history to the model.
+  - Partially done: scenario, evidence, aggro, round, and current user transcript are sent. Full multi-turn transcript history is still remaining.
 - [ ] Return structured JSON for each round: roommate line, tactic label, coaching hint, and completion state.
-- [ ] Keep the current canned response system as fallback.
+  - Partially done: Gemini returns compact JSON with attack name, attack line, and roommate line. Coaching hint and model-provided completion state remain.
+- [x] Keep the current canned response system as fallback.
 - [ ] Add guardrails for non-abusive, constructive practice.
+  - Partially done in the Gemini prompt tone constraints. Server-side safety checks are still remaining.
 
 Acceptance criteria:
 
@@ -104,13 +113,15 @@ Acceptance criteria:
 
 Goal: make the confrontation feel semi-real-time through spoken user input and roommate audio.
 
-- [ ] Implement `/api/voice/token` so the frontend can request a short-lived Deepgram token.
-- [ ] Add microphone permission flow in the battle screen.
-- [ ] Stream or record user speech and transcribe it with Deepgram STT.
-- [ ] Feed transcribed user responses into the argument engine.
-- [ ] Add roommate text-to-speech playback.
-- [ ] Show subtitles for all spoken roommate lines.
+- [x] Implement `/api/voice/token` so the frontend can request a short-lived Deepgram token.
+- [x] Add microphone permission flow in the battle screen.
+- [x] Stream or record user speech and transcribe it with Deepgram STT.
+- [x] Feed transcribed user responses into the argument engine.
+- [x] Add roommate text-to-speech playback.
+  - Done through `/api/voice/speak` with Deepgram audio and browser speech synthesis fallback.
+- [x] Show subtitles for all spoken roommate lines.
 - [ ] Provide typed input and/or mock transcript fallback.
+  - Partially done: browser speech captions and mock-mode status exist. A typed text box fallback is still missing.
 
 Acceptance criteria:
 
@@ -122,15 +133,17 @@ Acceptance criteria:
 
 Goal: turn the uploaded photo into a memorable "0.5 zoom yapping roommate" demo moment.
 
-- [ ] Decide final media path:
+- [x] Decide final media path:
   - Pika video generation,
   - Gemini/Nano Banana image edit,
   - CSS animation over uploaded image,
   - or a hybrid fallback.
+  - Current path is Gemini/Nano Banana forehead image edit plus CSS yapping animation; Pika remains a mock hook.
 - [ ] Wire `/api/media/avatar` to the selected provider if credentials are available.
-- [ ] Keep `/api/media/forehead` as a fast fallback for image-based comedy.
-- [ ] Animate the avatar while the roommate speaks.
-- [ ] Show media generation status without blocking the main confrontation.
+- [x] Keep `/api/media/forehead` as a fast fallback for image-based comedy.
+- [x] Animate the avatar while the roommate speaks.
+  - Done as CSS yapping/defensive animations over uploaded or fallback face media.
+- [x] Show media generation status without blocking the main confrontation.
 - [ ] Cache or reuse generated media for the session.
 
 Acceptance criteria:
@@ -144,7 +157,9 @@ Acceptance criteria:
 Goal: make sponsor technology visible without overbuilding.
 
 - [ ] Deepgram: label STT/TTS usage in the demo narrative and README.
+  - Partially done in README and UI copy. The final demo narrative/script still needs an explicit Deepgram beat.
 - [ ] Pika: include generated or mock generated yapping-roommate media.
+  - Partially done as a mock `/api/media/avatar` hook and CSS yapping-roommate fallback. A visible Pika-labeled demo beat remains optional polish.
 - [ ] Sentry: optionally add frontend/backend error reporting if the team wants the implementation-practices angle.
 - [ ] Redis: only add if using memory/vector state; otherwise avoid scope creep.
 - [ ] Token router/compression sponsors: only add if the LLM provider path makes it trivial.
@@ -166,9 +181,10 @@ Goal: prepare the project for judging.
   - API integrations,
   - mock-mode behavior,
   - demo script.
-- [ ] Add `.env.example` if missing.
-- [ ] Run `npm run check`.
-- [ ] Run `npm run build`.
+  - Mostly done. The README has setup, env vars, routes, integrations, and mock-mode behavior; a tighter 60-90 second script is still remaining.
+- [x] Add `.env.example` if missing.
+- [x] Run `npm run check`.
+- [x] Run `npm run build`.
 - [ ] Verify the app in a browser.
 - [ ] Prepare a 60-90 second live demo script:
   - introduce the exploded Coke incident,

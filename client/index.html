@@ -59,6 +59,36 @@
                 <p id="foreheadStatus">Upload a face to unlock the emergency wide-angle accusation lens.</p>
               </div>
 
+              <div class="voice-casting" aria-live="polite">
+                <label class="meter-control">
+                  <span>Battle style</span>
+                  <select id="conversationModeSelect">
+                    <option value="turn-style" selected>Turn-style</option>
+                    <option value="easy">Easy Agent</option>
+                    <option value="medium">Medium Agent</option>
+                    <option value="hard">Hard Agent</option>
+                  </select>
+                </label>
+                <label class="meter-control">
+                  <span>Roommate voice</span>
+                  <select id="voiceStyleSelect">
+                    <option value="surprise">Surprise me</option>
+                    <option value="deadpan">Deadpan</option>
+                    <option value="frantic">Frantic</option>
+                    <option value="smug">Smug</option>
+                    <option value="soft-spoken">Soft-spoken</option>
+                    <option value="theater-kid">Theater kid</option>
+                    <option value="deeply-inconvenienced" selected>Deeply inconvenienced</option>
+                  </select>
+                </label>
+                <button class="battle-button forehead-button" id="previewVoiceButton" type="button">
+                  Preview voice
+                </button>
+                <p id="voiceCastingNote">
+                  Performance styles only -- never guessed from the uploaded photo.
+                </p>
+              </div>
+
               <button class="big-button" type="submit">Knock with confidence</button>
             </form>
           </div>
@@ -80,6 +110,22 @@
           </div>
 
           <div class="battle-stage">
+            <div class="voice-evidence" aria-live="polite">
+              <div class="referee-header">
+                <span class="referee-title">Deepgram Referee</span>
+                <span class="referee-badge" id="refereeModeBadge">Idle</span>
+              </div>
+              <p class="referee-turn-state" id="refereeTurnState">Awaiting mic</p>
+              <div>
+                <span>Stamped transcript</span>
+                <strong id="voiceTranscript">Mic is holstered until the door opens.</strong>
+                <span class="referee-confidence" id="refereeConfidence"></span>
+              </div>
+              <div class="voice-meter" aria-hidden="true"><b id="voiceMeter"></b></div>
+              <p id="voiceStatus">Deepgram has not entered the hallway yet.</p>
+              <p class="referee-latency" id="refereeLatency"></p>
+            </div>
+
             <div class="door-zone" id="doorZone">
               <div class="roommate-avatar-wrap">
                 <video id="roommateVideo" autoplay loop muted playsinline></video>
@@ -90,7 +136,7 @@
                   <b></b>
                 </div>
                 <div class="video-loading" id="videoLoading" aria-hidden="true">
-                  <span>Generating reactions…</span>
+                  <span>Generating reactions...</span>
                 </div>
               </div>
               <button class="door" id="doorButton" type="button" aria-label="Knock on roommate door">
@@ -111,20 +157,75 @@
 
           <div class="subtitle-rail" aria-live="polite">
             <p id="subtitleLine">The hallway is quiet. Too quiet for someone with shared dishes.</p>
+            <p class="tts-style-label" id="ttsStyleLabel"></p>
           </div>
 
-          <div class="voice-evidence" aria-live="polite">
-            <div>
-              <span>Live transcript</span>
-              <strong id="voiceTranscript">Mic is holstered until the door opens.</strong>
+          <div class="boundary-meter" id="boundaryMeter" aria-live="polite">
+            <span class="boundary-meter-title">Calm Boundary Meter</span>
+            <div class="sentiment-duel" id="sentimentDuel">
+              <div class="sentiment-fighter player">
+                <div class="sentiment-copy">
+                  <span>Your Sentiment</span>
+                  <strong id="playerSentimentLabel">Awaiting grievance</strong>
+                </div>
+                <div class="sentiment-bar" aria-label="Your sentiment meter">
+                  <b id="playerSentimentBar"></b>
+                </div>
+              </div>
+              <div class="sentiment-versus">VS</div>
+              <div class="sentiment-fighter boss">
+                <div class="sentiment-copy">
+                  <span>Boss Sentiment</span>
+                  <strong id="bossSentimentLabel">Deflection charging</strong>
+                </div>
+                <div class="sentiment-bar" aria-label="Boss sentiment meter">
+                  <b id="bossSentimentBar"></b>
+                </div>
+              </div>
             </div>
-            <div class="voice-meter" aria-hidden="true"><b id="voiceMeter"></b></div>
-            <p id="voiceStatus">Deepgram has not entered the hallway yet.</p>
+            <div class="boundary-labels" id="boundaryLabels"></div>
+            <p class="analysis-note" id="analysisNote"></p>
           </div>
 
           <div class="battle-controls">
             <button class="battle-button" id="speakButton" type="button" disabled>Argue live</button>
             <button class="battle-button secondary" id="resetButton" type="button">New grievance</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="fightcard-screen screen" id="fightCardScreen" aria-labelledby="fightCardTitle">
+        <div class="fightcard-panel">
+          <span class="fightcard-badge">Powered by Deepgram STT + Aura TTS</span>
+          <h1 id="fightCardTitle">Fight Card</h1>
+          <p class="fightcard-best-line-label">Best spoken line</p>
+          <p class="fightcard-best-line" id="fightCardBestLine">--</p>
+
+          <div class="fightcard-stats" id="fightCardStats">
+            <div class="fightcard-stat">
+              <span>Turns</span>
+              <strong id="fightCardTurns">0</strong>
+            </div>
+            <div class="fightcard-stat">
+              <span>Avg transcript confidence</span>
+              <strong id="fightCardConfidence">--</strong>
+            </div>
+            <div class="fightcard-stat">
+              <span>Boundary clarity score</span>
+              <strong id="fightCardBoundary">--</strong>
+            </div>
+            <div class="fightcard-stat">
+              <span>Deflections resisted</span>
+              <strong id="fightCardDeflections">0</strong>
+            </div>
+          </div>
+
+          <p class="fightcard-coaching-label">Final coaching note</p>
+          <p class="fightcard-coaching" id="fightCardCoaching">--</p>
+
+          <div class="fightcard-controls">
+            <button class="battle-button" id="copySummaryButton" type="button">Copy demo summary</button>
+            <button class="big-button" id="fightCardResetButton" type="button">Run it back</button>
           </div>
         </div>
       </section>
