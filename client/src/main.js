@@ -260,8 +260,10 @@ async function generateFrames(imageDataUrl) {
 }
 
 function startTalkingAnimation() {
+  bossPhotoWrap.classList.add("is-speaking");
   if (!state.frames.closed || !state.frames.open) return;
   stopTalkingAnimation();
+  bossPhotoWrap.classList.add("is-speaking");
   let showOpen = true;
   state.talkAnim = setInterval(() => {
     bossPhoto.src = showOpen ? state.frames.open : state.frames.closed;
@@ -274,6 +276,7 @@ function stopTalkingAnimation() {
     clearInterval(state.talkAnim);
     state.talkAnim = null;
   }
+  bossPhotoWrap.classList.remove("is-speaking");
   if (state.frames.closed) bossPhoto.src = state.frames.closed;
 }
 
@@ -283,6 +286,7 @@ function stopTalkingAnimation() {
 function speakWithBrowserVoice(text, speed = 1.0) {
   if (!("speechSynthesis" in window) || !window.SpeechSynthesisUtterance) {
     console.error("[voice] Browser speech synthesis unavailable.");
+    stopTalkingAnimation();
     return Promise.resolve();
   }
 
@@ -329,6 +333,7 @@ async function speakRoommateLine(line, style = resolveTtsStyle()) {
 
   stopRoommateSpeech();
   ttsStyleLabel.textContent = style.label;
+  startTalkingAnimation();
   console.info("[voice] Requesting roommate TTS.", { chars: text.length, speed: style.speed });
 
   try {
@@ -1321,7 +1326,6 @@ prepForm.addEventListener("submit", async (event) => {
   state.boss = 100;
   state.exchange = 0;
   state.knocked = false;
-  state.frames = { closed: null, open: null };
   stopVoiceArgument(false);
   stopRoommateSpeech();
   resetRefereePanel();
