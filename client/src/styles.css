@@ -345,7 +345,7 @@ input[type="range"] {
   max-width: 100vw;
   display: grid;
   grid-template-rows: auto 1fr auto auto;
-  gap: 14px;
+  gap: 10px;
   padding: clamp(10px, 3vw, 24px);
   overflow: hidden;
 }
@@ -399,8 +399,8 @@ input[type="range"] {
 .battle-stage {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(260px, 360px) minmax(330px, 520px);
-  gap: clamp(14px, 4vw, 42px);
+  grid-template-columns: minmax(310px, 420px) minmax(300px, 480px);
+  gap: clamp(12px, 3vw, 32px);
   justify-content: center;
   align-items: end;
 }
@@ -479,7 +479,7 @@ input[type="range"] {
 .door-zone {
   position: relative;
   width: 100%;
-  min-height: min(64vh, 560px);
+  min-height: min(56vh, 500px);
   display: grid;
   place-items: end center;
   perspective: 1100px;
@@ -489,8 +489,8 @@ input[type="range"] {
   position: relative;
   z-index: 1;
   width: min(100%, 330px);
-  height: min(62vh, 500px);
-  min-height: 360px;
+  height: min(54vh, 460px);
+  min-height: 330px;
   border: 8px solid var(--ink);
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.16), transparent 18%),
@@ -590,8 +590,8 @@ input[type="range"] {
   right: 0;
   margin: 0 auto;
   width: min(100%, 330px);
-  height: min(62vh, 500px);
-  min-height: 360px;
+  height: min(54vh, 460px);
+  min-height: 330px;
   aspect-ratio: unset;
   opacity: 0;
   pointer-events: none;
@@ -777,7 +777,7 @@ input[type="range"] {
   align-self: center;
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(130px, 0.45fr);
-  gap: 10px 14px;
+  gap: 8px 12px;
   align-items: center;
   padding: 12px;
   background: var(--paper);
@@ -953,6 +953,19 @@ input[type="range"] {
 
 .composure-meter.is-rattled b {
   background: linear-gradient(90deg, var(--mustard), var(--tomato));
+}
+
+.sentiment-duel.referee-sentiments {
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr;
+}
+
+.referee-sentiments .sentiment-fighter {
+  padding: 7px;
+}
+
+.referee-sentiments .sentiment-bar {
+  height: 20px;
 }
 
 .turn-stamp {
@@ -1234,8 +1247,10 @@ input[type="range"] {
 
 .boundary-meter {
   display: grid;
-  gap: 8px;
-  padding: 10px 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 10px;
+  align-items: center;
+  padding: 8px 10px;
   background: var(--paper);
   border: 5px solid var(--ink);
   box-shadow: 6px 6px 0 var(--ink);
@@ -1247,7 +1262,7 @@ input[type="range"] {
   font-weight: 1000;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
 }
 
 .sentiment-duel {
@@ -1346,6 +1361,7 @@ input[type="range"] {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
 }
 
 .boundary-labels:empty::before {
@@ -1373,9 +1389,10 @@ input[type="range"] {
 }
 
 .analysis-note {
+  grid-column: 1 / -1;
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 700;
   color: var(--ink);
   opacity: 0.85;

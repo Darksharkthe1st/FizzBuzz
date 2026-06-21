@@ -103,7 +103,37 @@ function setRefereeConfidence(confidence) {
   state.voice.lastConfidence = confidence;
 }
 
+function getCurrentVoiceTranscript() {
+  return [state.voice.finalTranscript, state.voice.interimTranscript].filter(Boolean).join(" ").trim();
+}
+
+function clearEndTurnWatchdog() {
+  if (!state.voice.endTurnTimer) return;
+  window.clearTimeout(state.voice.endTurnTimer);
+  state.voice.endTurnTimer = 0;
+}
+
+function resolveDetectedTurn(reason, { teardownVoice = true } = {}) {
+  const transcript = getCurrentVoiceTranscript();
+  if (!transcript || state.voice.processing) return false;
+  clearEndTurnWatchdog();
+  console.info("[voice] Resolving turn from local detector.", { reason, chars: transcript.length });
+  markEndOfTurn();
+  setRefereeTurnState("Roommate preparing deflection");
+  void resolveLiveArgument(transcript, { teardownVoice });
+  return true;
+}
+
+function armEndTurnWatchdog(reason, { teardownVoice = true, timeoutMs = 1600 } = {}) {
+  if (!getCurrentVoiceTranscript() || state.voice.processing) return;
+  clearEndTurnWatchdog();
+  state.voice.endTurnTimer = window.setTimeout(() => {
+    resolveDetectedTurn(reason, { teardownVoice });
+  }, timeoutMs);
+}
+
 function resetRefereePanel() {
+  clearEndTurnWatchdog();
   setRefereeMode("Idle");
   setRefereeTurnState("Awaiting mic");
   setRefereeConfidence(null);
@@ -214,6 +244,30 @@ function resolveTtsStyle(bossHealth = 100, aggro = 3) {
   return { speed: 1.0, label: "Aura TTS: normal speed", model };
 }
 
+function clearTtsWatchdog() {
+  if (!state.tts.watchdogTimer) return;
+  window.clearTimeout(state.tts.watchdogTimer);
+  state.tts.watchdogTimer = 0;
+}
+
+function estimateTtsWatchdogMs(text, speed = 1.0) {
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean).length;
+  const estimatedSpeechMs = (words / Math.max(0.6, speed)) * 430;
+  return Math.min(18000, Math.max(5500, estimatedSpeechMs + 3500));
+}
+
+function armTtsWatchdog(text, speed, finish, label) {
+  clearTtsWatchdog();
+  const timeoutMs = estimateTtsWatchdogMs(text, speed);
+  state.tts.watchdogTimer = window.setTimeout(() => {
+    console.warn(`[voice] ${label} did not report completion; releasing turn after watchdog timeout.`, {
+      timeoutMs,
+      chars: String(text || "").length,
+    });
+    finish();
+  }, timeoutMs);
+}
+
 // Stops the roommate mid-sentence if they're talking. Used both for the
 // normal "about to play a new line" case and for a deliberate barge-in
 // interruption -- in the interrupt case, nothing else will fire an
@@ -221,6 +275,7 @@ function resolveTtsStyle(bossHealth = 100, aggro = 3) {
 // here to release whoever is awaiting "the roommate finished talking"
 // instead of leaving that promise hanging forever.
 function stopRoommateSpeech() {
+  clearTtsWatchdog();
   stopTalkingAnimation();
   stopAgentAudio();
   if (state.tts.audio) {
@@ -299,6 +354,7 @@ function speakWithBrowserVoice(text, speed = 1.0) {
     utterance.pitch = 0.78;
     utterance.volume = 1;
     const finish = () => {
+      clearTtsWatchdog();
       state.tts.speaking = false;
       state.tts.resolveSpeaking = null;
       stopTalkingAnimation();
@@ -316,6 +372,7 @@ function speakWithBrowserVoice(text, speed = 1.0) {
     state.tts.speaking = true;
     state.tts.resolveSpeaking = finish;
     markRoommateResponseStart();
+    armTtsWatchdog(text, speed, finish, "Browser speech synthesis");
     window.speechSynthesis.speak(utterance);
     startTalkingAnimation();
   });
@@ -360,16 +417,25 @@ async function speakRoommateLine(line, style = resolveTtsStyle()) {
         model: response.headers.get("dg-model-name"),
       });
       await new Promise((resolve) => {
-        state.tts.resolveSpeaking = resolve;
+        const finish = () => {
+          clearTtsWatchdog();
+          state.tts.resolveSpeaking = null;
+          resolve();
+        };
+        state.tts.resolveSpeaking = finish;
         audio.addEventListener("ended", () => {
           console.info("[voice] Deepgram TTS playback ended.");
           stopRoommateSpeech();
-          resolve();
+          finish();
         });
         audio.addEventListener("error", (event) => {
           console.error("[voice] Deepgram TTS playback error; using browser speech.", event);
           resolve(speakWithBrowserVoice(text, style.speed));
         });
+        armTtsWatchdog(text, style.speed, () => {
+          stopRoommateSpeech();
+          finish();
+        }, "Deepgram TTS playback");
         audio
           .play()
           .then(() => {
@@ -762,15 +828,20 @@ function handleFluxTurnInfo(data) {
 
   if (transcript) {
     state.voice.finalTranscript = transcript;
+    state.voice.interimTranscript = "";
     markFirstTranscript();
     setRefereeTurnState(data.event === "EndOfTurn" ? "End of turn detected" : "Still talking");
     setVoiceUi(
       data.event === "EndOfTurn" ? "Heard that. The roommate is preparing an objection." : "Hearing you in real time...",
       transcript,
     );
+    if (data.event !== "EndOfTurn") {
+      armEndTurnWatchdog("flux transcript idle", { teardownVoice: false });
+    }
   }
 
   if (data.event !== "EndOfTurn") return;
+  clearEndTurnWatchdog();
   markEndOfTurn();
   setRefereeTurnState("End of turn detected");
 
@@ -812,6 +883,23 @@ async function startDeepgramVoice(token) {
   state.voice.stream = stream;
   state.voice.socket = socket;
   state.voice.recorder = recorder;
+
+  stream.getAudioTracks().forEach((track) => {
+    track.addEventListener("mute", () => {
+      if (state.voice.stream !== stream || state.voice.processing) return;
+      console.warn("[voice] Microphone track muted; forcing end-of-turn if transcript is available.");
+      resolveDetectedTurn("microphone muted", { teardownVoice: state.voice.sttMode !== "flux" });
+    });
+    track.addEventListener("ended", () => {
+      if (state.voice.stream !== stream || state.voice.processing) return;
+      console.warn("[voice] Microphone track ended; forcing end-of-turn if transcript is available.");
+      resolveDetectedTurn("microphone ended", { teardownVoice: true });
+      if (state.voice.active && !state.voice.processing) {
+        stopVoiceArgument(false);
+        setVoiceUi("Mic stopped. Say the next part when the mic is back.");
+      }
+    });
+  });
 
   socket.addEventListener("open", () => {
     if (state.voice.socket !== socket) return;
@@ -871,9 +959,12 @@ async function startDeepgramVoice(token) {
     );
 
     if (data.speech_final) {
+      clearEndTurnWatchdog();
       markEndOfTurn();
       setRefereeTurnState("Roommate preparing deflection");
       void resolveLiveArgument(state.voice.finalTranscript || transcript);
+    } else {
+      armEndTurnWatchdog("deepgram transcript idle", { teardownVoice: true });
     }
   });
 
@@ -963,9 +1054,9 @@ function startBrowserSpeechFallback(reason = "") {
     );
 
     if (state.voice.finalTranscript) {
-      markEndOfTurn();
-      setRefereeTurnState("Roommate preparing deflection");
-      void resolveLiveArgument(state.voice.finalTranscript);
+      resolveDetectedTurn("browser final transcript", { teardownVoice: true });
+    } else if (state.voice.interimTranscript) {
+      armEndTurnWatchdog("browser transcript idle", { teardownVoice: true, timeoutMs: 1800 });
     }
   });
 
@@ -981,6 +1072,7 @@ function startBrowserSpeechFallback(reason = "") {
   recognizer.addEventListener("end", () => {
     console.warn("[voice] Browser speech recognition ended.");
     if (state.voice.active && !state.voice.processing) {
+      if (resolveDetectedTurn("browser recognizer ended", { teardownVoice: true })) return;
       if (!browserSpeechFatal && restartAttempts < 2) {
         restartAttempts += 1;
         window.setTimeout(() => {
@@ -1020,6 +1112,7 @@ function startBrowserSpeechFallback(reason = "") {
 }
 
 function stopVoiceArgument(shouldResolve = true) {
+  clearEndTurnWatchdog();
   const transcript = state.voice.finalTranscript || state.voice.interimTranscript;
   setVoiceActive(false);
 
@@ -1186,12 +1279,14 @@ function renderSentimentDuel(duel) {
   const player = duel?.user;
   const boss = duel?.boss;
   playerSentimentLabel.textContent = player?.label || "Awaiting grievance";
-  bossSentimentLabel.textContent = boss?.label || "Deflection charging";
   playerSentimentBar.style.width = `${Math.max(0, Math.min(100, player?.value ?? 10))}%`;
-  bossSentimentBar.style.width = `${Math.max(0, Math.min(100, boss?.value ?? 18))}%`;
   playerSentimentBar.parentElement.classList.toggle("is-hot", player?.label === "heated");
   playerSentimentBar.parentElement.classList.toggle("is-petty", player?.label === "petty but valid");
-  bossSentimentBar.parentElement.classList.toggle("is-cornered", boss?.label === "cornered");
+  if (bossSentimentLabel && bossSentimentBar) {
+    bossSentimentLabel.textContent = boss?.label || "Deflection charging";
+    bossSentimentBar.style.width = `${Math.max(0, Math.min(100, boss?.value ?? 18))}%`;
+    bossSentimentBar.parentElement.classList.toggle("is-cornered", boss?.label === "cornered");
+  }
 }
 
 const analysisCopy = {

@@ -30,6 +30,7 @@ export function createInitialState() {
       processing: false,
       lastConfidence: null,
       lastAdvancedTurnIndex: -1,
+      endTurnTimer: 0,
       timing: {
         micStartAt: 0,
         firstTranscriptAt: 0,
@@ -42,6 +43,7 @@ export function createInitialState() {
       objectUrl: "",
       speaking: false,
       resolveSpeaking: null,
+      watchdogTimer: 0,
     },
     frames: {
       closed: null,
