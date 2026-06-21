@@ -150,36 +150,117 @@ ships a Flux update.
 
 Per `docs/DEEPGRAM_SPONSOR_PLAN.md`, Session 2's stated scope is: handle Flux
 turn events, advance the battle on end-of-turn, add duplicate-turn protection,
-show turn state in the UI.
+show turn state in the UI. **That framing is incomplete.** A deep review of
+this plan against the actual code in `client/src/main.js` found an
+architectural gap underneath it that has to be resolved first, or the session
+can burn its whole budget on event-name discovery and ship something that
+still requires a button press per turn — i.e. the headline acceptance
+criterion never actually gets met.
 
-**Before writing any code**, do the equivalent of Session 1's Step 1: run a
-live discovery test against `/v2/listen` with audio that actually triggers a
-high `end_of_turn_confidence` (the Session 1 test never did — pause naturally
-after a full sentence, or send a longer clip with trailing silence) and
-capture what `data.event` actually says at that moment. Do not write
-`if (data.event === "EndOfTurn")` (or whatever the plan implies) without
-having seen that exact string come back from the live API first. Same goes
-for whatever `TurnResumed` turns out to look like — the plan describes it as
-a way to cancel a speculative response if the user keeps talking after a
-pause, but it has not been observed yet.
+### Step -1 (do this before Step 0): make the connection-lifecycle decision
 
-Concretely, scrutinize these specific plan claims against live behavior before
-trusting them:
+**The current voice loop is reconnect-per-turn, not a persistent conversation.**
+Verified by reading the code, not assumed:
+
+- [`resolveLiveArgument`](../client/src/main.js#L477) calls `stopVoiceArgument(false)`
+  ([main.js:483](../client/src/main.js#L483)) every time a turn resolves.
+- `stopVoiceArgument` calls `cleanupDeepgramVoice` ([main.js:458](../client/src/main.js#L458)),
+  which tears down the websocket, the `MediaRecorder`, and the mic `stream`
+  completely ([main.js:467-470](../client/src/main.js#L467)).
+- After the round finishes, the button resets to "Argue live"
+  ([main.js:493](../client/src/main.js#L493)) — the next turn requires a fresh
+  click, fresh `getUserMedia`, fresh `/api/voice/token`, and a brand-new
+  `/v2/listen` connection.
+
+Tier 1 #3's acceptance criterion is *"the user speaks naturally, pauses, and
+the roommate responds without pressing another button."* That cannot happen
+under reconnect-per-turn — each turn already ends in a full teardown, so
+adding an `EndOfTurn` handler on top of it does not produce a multi-turn,
+button-free conversation. To actually deliver the stated criterion, the
+session must change the architecture so the socket and mic stream survive
+across multiple turns within one "Argue live" session, and the EndOfTurn
+handler calls `advanceBattle` directly without tearing down voice state.
+
+**Decide this explicitly, in writing, before Step 0** — don't let it get
+decided implicitly by what happens to be easiest once the discovery test is
+underway. If a true persistent-connection rework is too large for this
+session's time budget, that's a legitimate call, but say so up front and
+scope Session 2 down to "EndOfTurn replaces the Nova `speech_final` trigger
+within the existing reconnect-per-turn loop" — which is real, demoable
+progress, just not the multi-turn experience the sponsor plan describes.
+Whichever way this goes, write the decision and its reasoning into
+`docs/SESSION_2-3_HANDOFF.md` so Session 3 isn't left to reverse-engineer it.
+
+This decision changes what later steps even need to test:
+
+- **If persistent-connection**: `turn_index` becomes a meaningful signal, and
+  the real dedupe question is "does Deepgram ever re-emit the same
+  `turn_index` with a duplicate EndOfTurn" (reconnection/retry), not whether
+  `turn_index` increments at all.
+- **If reconnect-per-turn stays**: `turn_index` will almost always be `0` or
+  very low per connection — not useful as a dedupe key — and the
+  duplicate-advance risk is already mostly handled by existing guards (the
+  `state.voice.processing` check in
+  [resolveLiveArgument:479](../client/src/main.js#L479) and the stale-socket
+  check `state.voice.socket !== socket` in the message handler). Don't spend
+  time building new dedupe machinery this path doesn't need.
+
+**If persistent-connection is chosen, mic feedback is in scope for this
+session, not a deferred Tier 3 concern.** Verified fact #8 (mic picking up
+roommate TTS played through speakers) was written as a future barge-in
+problem, but it is a direct, immediate consequence of keeping the mic hot
+across turns: the roommate's own Aura TTS audio can get transcribed as the
+start of a new user turn, firing a spurious EndOfTurn and an unwanted battle
+advance — live, in front of judges. Scope an explicit mitigation (gate/pause
+outbound audio frames during TTS playback — don't close the socket, just
+stop transmitting) into this session rather than discovering it during a demo
+run.
+
+### Step 0: live discovery test (now that the architecture question is settled)
+
+Run a live discovery test against `/v2/listen` with audio that actually
+triggers a high `end_of_turn_confidence` (the Session 1 test never did —
+pause naturally after a full sentence, or send a longer clip with trailing
+silence) and capture what `data.event` actually says at that moment. Do not
+write `if (data.event === "EndOfTurn")` (or whatever the plan implies)
+without having seen that exact string come back from the live API first.
+Same goes for whatever `TurnResumed` turns out to look like.
+
+Add to this test, beyond what Session 1 covered:
+
+- **Transcript accumulation shape.** Confirm whether a `TurnInfo`/`Update`
+  event's `transcript` field is cumulative for the whole turn so far, or just
+  the latest incremental words. This determines whether Nova's existing
+  accumulation pattern (concatenate `finalTranscript` across messages,
+  [main.js:310-311](../client/src/main.js#L310)) can be reused as-is for Flux,
+  or whether the handler needs to replace rather than append on each
+  `Update`. Test by speaking a multi-word sentence and diffing successive
+  `Update` transcripts.
+- **Duplicate-EndOfTurn behavior**, scoped per the Step -1 decision above —
+  either "does the same `turn_index` ever get a second EndOfTurn" (persistent
+  connection) or confirm the existing guards already cover the
+  reconnect-per-turn case (no new test needed if so — just confirm, don't
+  build).
+
+Also scrutinize these specific plan claims against live behavior:
 
 - That `EagerEndOfTurn` is a literal value worth branching on for "start
-  preparing the roommate response early" — confirm the field/value that
-  signals this, and confirm it actually fires meaningfully earlier than the
-  final end-of-turn signal in practice (not just in theory).
-- That a `TurnResumed`-equivalent event exists and is distinguishable from a
-  fresh new turn starting (`turn_index` incrementing, based on what was
-  observed in Session 1, looks like the relevant signal — confirm before
-  relying on `data.event` string matching alone).
-- Whether `turn_index` is reliable for "duplicate-turn protection," or
-  whether `sequence_id` is the better dedupe key — Session 1 only observed
-  these counters under one continuous turn that never resolved to a new
-  index.
+  preparing the roommate response early" — confirm the field/value, and set a
+  concrete bar before testing (e.g. "only worth using if it reliably fires
+  ≥300ms before final EndOfTurn across several utterances") so this doesn't
+  become an open-ended judgment call mid-session. If it doesn't clear the
+  bar, explicitly drop Eager EOT from this session's scope rather than
+  half-implementing it.
+- If Eager EOT is kept: there is currently **no cancellation mechanism**
+  anywhere in `advanceBattle` or the server-side roommate-response call — it's
+  a plain `await postJson(...)` ([main.js:739](../client/src/main.js#L739)).
+  "Cancel the speculative response on `TurnResumed`" needs a concrete
+  mechanism (e.g. `AbortController` on the fetch) decided and built, not left
+  as an implied detail. If building real cancellation is out of budget, the
+  documented fallback is "let the early response land and discard its
+  result" — name that as the fallback, don't let it happen by accident.
 
-Once the real event semantics are confirmed, the implementation should:
+### Implementation, once the above is settled
 
 - Replace the Session-1 placeholder `if (state.voice.sttMode === "flux")
   console.debug(...)` branch in `main.js`'s websocket message handler with
@@ -188,9 +269,12 @@ Once the real event semantics are confirmed, the implementation should:
   working one).
 - Keep the manual "Stop arguing" button working as a fallback in both modes —
   the plan's acceptance criteria for this session require it.
-- Add the duplicate-advance guard before wiring the battle-advance call, not
-  after — a double-advance bug discovered after this is built and demoed once
-  is much more annoying to chase down than one prevented by design.
+- Build the duplicate-advance guard (if the Step -1 decision says one is
+  actually needed — see above) before wiring the battle-advance call, not
+  after.
+- If persistent-connection was chosen, build the TTS-playback audio gating
+  before doing any live multi-turn testing — testing multi-turn flow without
+  it risks the feedback loop described above corrupting every test run.
 
 ## How to use this document going forward
 
