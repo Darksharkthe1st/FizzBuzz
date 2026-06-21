@@ -16,6 +16,19 @@ const port = Number(process.env.PORT || 5175);
 const isProduction = process.env.NODE_ENV === "production";
 
 const sessions = new Map();
+const pikaVideoBatches = new Map(); // batchId → { clips: { mood → { jobId, status, url } } }
+
+const MOODS = ["idle_yap", "defensive", "dismissive", "escalating", "deflecting", "gaslighting", "fake_apologetic"];
+
+const MOOD_PROMPTS = {
+  idle_yap:        "Close-up face and shoulders, person talking casually with relaxed natural mouth movement, slight smug expression, eyes alive, soft natural indoor light, subtle breathing",
+  defensive:       "Close-up face and shoulders, person talking defensively, rapid tense mouth movements, furrowed brow, chin slightly tucked, eyes narrowed, head shaking gently no",
+  dismissive:      "Close-up face and shoulders, person talking dismissively, slow drawling mouth movement, eye roll, one eyebrow raised, slight smirk, looking slightly away",
+  escalating:      "Close-up face and shoulders, person talking with escalating energy, wide emphatic mouth movements, expressive eyes widening, leaning slightly forward into frame",
+  deflecting:      "Close-up face and shoulders, person talking evasively, uncertain uneven mouth movements, eyes glancing sideways, scratching back of head, avoiding eye contact",
+  gaslighting:     "Close-up face and shoulders, person talking with exaggerated innocence, wide doe eyes, slow deliberate mouth movements, head tilted, palms-up gesture visible",
+  fake_apologetic: "Close-up face and shoulders, person performing an apology while talking, exaggerated sad mouth movements, puppy-dog eyes, chin quiver, hands pressed together",
+};
 
 const titleBank = [
   "The Deflection Engine",
@@ -197,6 +210,60 @@ function createForeheadPrompt(argument) {
   ].join(" ");
 }
 
+async function callGeminiImageEdit(image, prompt, model, apiKey) {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }, { inline_data: { mime_type: image.mimeType, data: image.data } }] }],
+      }),
+    },
+  );
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) return null;
+  const parts = result.candidates?.[0]?.content?.parts || [];
+  const generated = parts.find((p) => p.inlineData || p.inline_data);
+  const inlineData = generated?.inlineData || generated?.inline_data;
+  if (!inlineData?.data) return null;
+  return `data:${inlineData.mimeType || inlineData.mime_type || "image/png"};base64,${inlineData.data}`;
+}
+
+async function generateRoommateFrames(payload) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const image = parseDataUrl(payload.imageDataUrl);
+  const model = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
+
+  if (!image) {
+    return { status: 400, body: { error: "No valid image provided." } };
+  }
+
+  if (process.env.USE_GEMINI_IMAGE !== "true" || !apiKey) {
+    console.info("[frames] Gemini image disabled or missing key; returning mock frames.");
+    return { status: 202, body: { mode: "mock", closedUrl: null, openUrl: null } };
+  }
+
+  const closedPrompt =
+    "Edit this photo of a person so their mouth is gently closed, lips resting together naturally in a neutral expression. " +
+    "Keep everything else absolutely identical: same background, same lighting, same face angle, same eyes and eyebrows, same hair, same skin tone, same clothing. " +
+    "Only change the mouth. The result should look like a natural photograph.";
+
+  const openPrompt =
+    "Edit this photo of a person so their mouth is open mid-speech, clearly showing they are talking — mouth slightly open, showing teeth, as if saying a word. " +
+    "Keep everything else absolutely identical: same background, same lighting, same face angle, same eyes and eyebrows, same hair, same skin tone, same clothing. " +
+    "Only change the mouth. The result should look like a natural photograph.";
+
+  console.info("[frames] Requesting two Gemini frames (mouth closed + open) in parallel.");
+  const [closedUrl, openUrl] = await Promise.all([
+    callGeminiImageEdit(image, closedPrompt, model, apiKey).catch(() => null),
+    callGeminiImageEdit(image, openPrompt, model, apiKey).catch(() => null),
+  ]);
+
+  console.info(`[frames] Frames ready; closedOk=${Boolean(closedUrl)}; openOk=${Boolean(openUrl)}`);
+  return { status: 200, body: { mode: "gemini", closedUrl: closedUrl || null, openUrl: openUrl || null } };
+}
+
 async function generateForeheadPortrait(payload) {
   const apiKey = process.env.GEMINI_API_KEY;
   const image = parseDataUrl(payload.imageDataUrl);
@@ -368,6 +435,7 @@ async function advanceArgument(sessionId, transcript = "") {
     boss: session.boss,
     heard: truncateForDisplay(transcript, 180),
     attack: defensive.attack,
+    mood: session.boss === 0 ? "fake_apologetic" : (defensive.mood || "defensive"),
     roommateLine:
       session.boss === 0
         ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
@@ -392,11 +460,13 @@ function chooseDefensiveResponse(session, transcript) {
           : "You inhaled like someone with a laminated chore chart.",
       },
       roommateLine: matched.line,
+      mood: "deflecting",
     };
   }
 
   const counter = counterBank[session.exchange % counterBank.length];
   const excuse = excuseBank[(session.exchange + session.aggro) % excuseBank.length];
+  const moodByRound = session.round <= 2 ? "idle_yap" : session.round <= 4 ? "dismissive" : "escalating";
   return {
     attack: {
       name: counter.name,
@@ -407,6 +477,7 @@ function chooseDefensiveResponse(session, transcript) {
     roommateLine: heard
       ? `I heard "${truncateForDisplay(heard, 80)}," and honestly the accusation-to-context ratio is aggressive.`
       : excuse,
+    mood: moodByRound,
   };
 }
 
@@ -442,8 +513,9 @@ function createSpeechText(value) {
 function createRoommatePrompt(session, transcript) {
   return [
     "Return ONLY compact JSON. No markdown. No intro.",
-    'Format: {"attackName":"2-4 words","attackLine":"short summary","roommateLine":"one funny defensive comeback"}',
+    'Format: {"attackName":"2-4 words","attackLine":"short summary","roommateLine":"one funny defensive comeback","mood":"one of: defensive|dismissive|escalating|deflecting|gaslighting|fake_apologetic|idle_yap"}',
     "Role: evasive, defensive, funny roommate boss. Clearly react to the user's exact complaint. Playful, non-threatening.",
+    "Pick mood that best matches the roommate's emotional state in their response.",
     `Topic: ${shortTopic(session.argument, 100)}`,
     `Aggro:${session.aggro}/5 Evidence:${session.evidence}/5 Round:${session.round}`,
     `User: ${truncateForDisplay(transcript, 260) || "(silence)"}`,
@@ -513,13 +585,16 @@ async function generateGeminiArgumentTurn(session, transcript) {
     return null;
   }
 
-  console.info("[argue] Gemini roommate response ready.");
+  const validMoods = new Set(MOODS);
+  const mood = validMoods.has(parsed.mood) ? parsed.mood : "defensive";
+  console.info(`[argue] Gemini roommate response ready; mood=${mood}`);
   return {
     attack: {
       name: truncateForDisplay(parsed.attackName || "Deflection Burst", 48),
       line: truncateForDisplay(parsed.attackLine || `You said: "${truncateForDisplay(transcript, 130)}"`, 180),
     },
     roommateLine: truncateForDisplay(parsed.roommateLine, 260),
+    mood,
   };
 }
 
@@ -709,6 +784,157 @@ async function synthesizeDeepgramSpeech(payload) {
   };
 }
 
+async function uploadImageToPika(imageDataUrl, apiKey) {
+  const image = parseDataUrl(imageDataUrl);
+  if (!image) throw new Error("Invalid image data URL for Pika upload.");
+
+  const buffer = Buffer.from(image.data, "base64");
+  const blob = new Blob([buffer], { type: image.mimeType });
+  const form = new FormData();
+  form.append("file", blob, "roommate.jpg");
+
+  console.info(`[pika] Uploading image; mimeType=${image.mimeType}; bytes=${buffer.length}`);
+  const response = await fetch("https://api.pika.art/v2/upload", {
+    method: "POST",
+    headers: { authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(`Pika upload failed ${response.status}: ${body.error || body.message || "unknown"}`);
+  }
+  const result = await response.json();
+  const url = result.url || result.fileUrl || result.imageUrl;
+  if (!url) throw new Error("Pika upload response did not include a URL.");
+  console.info(`[pika] Image uploaded; url=${url}`);
+  return url;
+}
+
+async function startPikaMoodVideo(imageUrl, mood, apiKey) {
+  const prompt = MOOD_PROMPTS[mood] || MOOD_PROMPTS.idle_yap;
+  console.info(`[pika] Starting video generation; mood=${mood}`);
+  const response = await fetch("https://api.pika.art/v2/generate", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      promptText: prompt,
+      sfx: false,
+      options: { aspectRatio: "1:1", frameRate: 24, duration: 4 },
+      startingFrame: { url: imageUrl },
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(`Pika generate failed ${response.status}: ${body.error || body.message || "unknown"}`);
+  }
+  const result = await response.json();
+  const jobId = result.id || result.jobId || result.taskId;
+  if (!jobId) throw new Error("Pika generate response did not include a job ID.");
+  console.info(`[pika] Job queued; mood=${mood}; jobId=${jobId}`);
+  return jobId;
+}
+
+async function getPikaJobResult(jobId, apiKey) {
+  const response = await fetch(`https://api.pika.art/v2/generate/${encodeURIComponent(jobId)}`, {
+    headers: { authorization: `Bearer ${apiKey}` },
+  });
+  if (!response.ok) throw new Error(`Pika status check failed: ${response.status}`);
+  const result = await response.json();
+  const status = result.status || "pending";
+  const videoUrl =
+    result.videos?.[0]?.url ||
+    result.video?.url ||
+    result.url ||
+    result.resultUrl ||
+    null;
+  return { status, videoUrl };
+}
+
+async function generatePikaVideos(payload) {
+  const apiKey = process.env.PIKA_API_KEY;
+  const enabled = process.env.USE_PIKA === "true" && Boolean(apiKey);
+  const batchId = randomUUID();
+
+  if (!enabled) {
+    console.info("[pika] Pika disabled or missing key; returning mock batch.");
+    const clips = Object.fromEntries(MOODS.map((m) => [m, { jobId: null, status: "mock", url: null }]));
+    pikaVideoBatches.set(batchId, { clips, done: true });
+    return { batchId, mock: true };
+  }
+
+  let imageUrl;
+  try {
+    imageUrl = await uploadImageToPika(payload.imageDataUrl, apiKey);
+  } catch (error) {
+    console.error("[pika] Image upload failed; aborting video batch.", error.message);
+    const clips = Object.fromEntries(MOODS.map((m) => [m, { jobId: null, status: "error", url: null }]));
+    pikaVideoBatches.set(batchId, { clips, done: true, error: error.message });
+    return { batchId, error: error.message };
+  }
+
+  const clips = {};
+  await Promise.all(
+    MOODS.map(async (mood) => {
+      try {
+        const jobId = await startPikaMoodVideo(imageUrl, mood, apiKey);
+        clips[mood] = { jobId, status: "pending", url: null };
+      } catch (error) {
+        console.error(`[pika] Failed to start video for mood=${mood}.`, error.message);
+        clips[mood] = { jobId: null, status: "error", url: null };
+      }
+    }),
+  );
+
+  pikaVideoBatches.set(batchId, { clips, done: false, imageUrl });
+
+  // Poll in background until all done (max 8 min)
+  void pollPikaBatchInBackground(batchId, apiKey);
+  return { batchId };
+}
+
+async function pollPikaBatchInBackground(batchId, apiKey) {
+  const POLL_INTERVAL_MS = 6000;
+  const MAX_POLLS = 80; // ~8 min
+  let polls = 0;
+
+  while (polls < MAX_POLLS) {
+    await new Promise((res) => setTimeout(res, POLL_INTERVAL_MS));
+    polls += 1;
+    const batch = pikaVideoBatches.get(batchId);
+    if (!batch) return;
+
+    let allDone = true;
+    await Promise.all(
+      Object.entries(batch.clips).map(async ([mood, clip]) => {
+        if (clip.status === "finished" || clip.status === "error" || !clip.jobId) return;
+        try {
+          const { status, videoUrl } = await getPikaJobResult(clip.jobId, apiKey);
+          clip.status = status === "finished" ? "finished" : status === "error" ? "error" : "pending";
+          if (videoUrl) clip.url = videoUrl;
+          if (clip.status === "pending") allDone = false;
+          console.info(`[pika] Poll ${polls}; mood=${mood}; status=${status}; hasUrl=${Boolean(videoUrl)}`);
+        } catch (error) {
+          console.error(`[pika] Poll failed for mood=${mood}.`, error.message);
+          clip.status = "error";
+        }
+      }),
+    );
+
+    if (allDone) {
+      batch.done = true;
+      console.info(`[pika] Batch ${batchId} complete after ${polls} polls.`);
+      return;
+    }
+  }
+
+  const batch = pikaVideoBatches.get(batchId);
+  if (batch) batch.done = true;
+  console.warn(`[pika] Batch ${batchId} timed out after ${polls} polls.`);
+}
+
 function clampNumber(value, min, max, fallback) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
@@ -742,7 +968,7 @@ function createApp() {
         geminiImage: process.env.USE_GEMINI_IMAGE === "true" && Boolean(process.env.GEMINI_API_KEY),
         geminiText: process.env.USE_GEMINI_TEXT !== "false" && Boolean(process.env.GEMINI_API_KEY),
         deepgram: process.env.USE_DEEPGRAM === "true",
-        pika: process.env.USE_PIKA === "true",
+        pika: process.env.USE_PIKA === "true" && Boolean(process.env.PIKA_API_KEY),
       },
     });
   });
@@ -790,8 +1016,41 @@ function createApp() {
     });
   });
 
+  app.post("/api/videos/generate", async (request, response) => {
+    const { imageDataUrl, argument } = request.body || {};
+    if (!imageDataUrl) {
+      response.status(400).json({ error: "imageDataUrl is required." });
+      return;
+    }
+    const result = await generatePikaVideos({ imageDataUrl, argument: argument || "" });
+    response.status(202).json(result);
+  });
+
+  app.get("/api/videos/status/:batchId", (request, response) => {
+    const batch = pikaVideoBatches.get(request.params.batchId);
+    if (!batch) {
+      response.status(404).json({ error: "Unknown batch." });
+      return;
+    }
+    const clips = Object.fromEntries(
+      Object.entries(batch.clips).map(([mood, clip]) => [mood, clip.url || null]),
+    );
+    const readyCount = Object.values(batch.clips).filter((c) => c.url).length;
+    response.json({
+      done: batch.done,
+      readyCount,
+      total: MOODS.length,
+      clips,
+    });
+  });
+
   app.post("/api/media/forehead", async (request, response) => {
     const generated = await generateForeheadPortrait(request.body || {});
+    response.status(generated.status).json(generated.body);
+  });
+
+  app.post("/api/media/frames", async (request, response) => {
+    const generated = await generateRoommateFrames(request.body || {});
     response.status(generated.status).json(generated.body);
   });
 

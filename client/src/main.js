@@ -59,6 +59,8 @@ const state = {
     objectUrl: "",
     speaking: false,
   },
+  frames: { closed: null, open: null },
+  talkAnim: null,
 };
 
 async function postJson(path, payload) {
@@ -118,6 +120,7 @@ function cleanupDeepgramVoice(socket, stream, recorder, shouldCloseSocket = true
 }
 
 function stopRoommateSpeech() {
+  stopTalkingAnimation();
   if (state.tts.audio) {
     state.tts.audio.pause();
     state.tts.audio.removeAttribute("src");
@@ -132,6 +135,43 @@ function stopRoommateSpeech() {
   state.tts.speaking = false;
 }
 
+async function generateFrames(imageDataUrl) {
+  if (!imageDataUrl) return;
+  console.info("[frames] Requesting mouth-closed and mouth-open frames from Gemini.");
+  try {
+    const result = await postJson("/api/media/frames", { imageDataUrl });
+    if (result.closedUrl) {
+      state.frames.closed = result.closedUrl;
+      bossPhoto.src = result.closedUrl;
+    }
+    if (result.openUrl) {
+      state.frames.open = result.openUrl;
+    }
+    console.info("[frames] Frames ready.", { mode: result.mode, hasClose: Boolean(result.closedUrl), hasOpen: Boolean(result.openUrl) });
+    if (state.tts.speaking) startTalkingAnimation();
+  } catch (error) {
+    console.warn("[frames] Frame generation failed; static photo will be used.", error.message);
+  }
+}
+
+function startTalkingAnimation() {
+  if (!state.frames.closed || !state.frames.open) return;
+  stopTalkingAnimation();
+  let showOpen = true;
+  state.talkAnim = setInterval(() => {
+    bossPhoto.src = showOpen ? state.frames.open : state.frames.closed;
+    showOpen = !showOpen;
+  }, 150);
+}
+
+function stopTalkingAnimation() {
+  if (state.talkAnim) {
+    clearInterval(state.talkAnim);
+    state.talkAnim = null;
+  }
+  if (state.frames.closed) bossPhoto.src = state.frames.closed;
+}
+
 function speakWithBrowserVoice(text) {
   if (!("speechSynthesis" in window) || !window.SpeechSynthesisUtterance) {
     console.error("[voice] Browser speech synthesis unavailable.");
@@ -144,16 +184,20 @@ function speakWithBrowserVoice(text) {
   utterance.rate = 1.04;
   utterance.pitch = 0.78;
   utterance.volume = 1;
+  utterance.addEventListener("start", () => startTalkingAnimation());
   utterance.addEventListener("end", () => {
     state.tts.speaking = false;
+    stopTalkingAnimation();
     console.info("[voice] Browser speech synthesis ended.");
   });
   utterance.addEventListener("error", (event) => {
     state.tts.speaking = false;
+    stopTalkingAnimation();
     console.error("[voice] Browser speech synthesis error.", event);
   });
   state.tts.speaking = true;
   window.speechSynthesis.speak(utterance);
+  startTalkingAnimation();
 }
 
 async function speakRoommateLine(line) {
@@ -192,9 +236,11 @@ async function speakRoommateLine(line) {
       });
       audio.addEventListener("error", (event) => {
         console.error("[voice] Deepgram TTS playback error; using browser speech.", event);
+        stopTalkingAnimation();
         speakWithBrowserVoice(text);
       });
       await audio.play();
+      startTalkingAnimation();
       return;
     }
 
@@ -582,6 +628,7 @@ roommatePhoto.addEventListener("change", async () => {
   if (state.photoUrl) URL.revokeObjectURL(state.photoUrl);
   state.photoUrl = URL.createObjectURL(file);
   state.photoDataUrl = "";
+  state.frames = { closed: null, open: null };
   photoPreview.src = state.photoUrl;
   bossPhoto.src = state.photoUrl;
   photoEvidence.classList.add("has-image");
@@ -593,6 +640,7 @@ roommatePhoto.addEventListener("change", async () => {
     state.photoDataUrl = await readFileAsDataUrl(file);
     foreheadButton.disabled = false;
     foreheadStatus.textContent = "Ready for forehead inflation. This is legally not a flattering lens.";
+    void generateFrames(state.photoDataUrl);
   } catch {
     foreheadStatus.textContent = "The image refused to become evidence. Try a smaller photo.";
   }
@@ -621,9 +669,11 @@ foreheadButton.addEventListener("click", async () => {
 
     if (generated.imageUrl) {
       state.photoDataUrl = generated.imageUrl;
+      state.frames = { closed: null, open: null };
       photoPreview.src = generated.imageUrl;
       bossPhoto.src = generated.imageUrl;
       foreheadStatus.textContent = "Forehead mode applied. Accountability now has forced perspective.";
+      void generateFrames(generated.imageUrl);
     } else {
       foreheadStatus.textContent = generated.message || "Forehead mode is ready, but needs an API key.";
     }
@@ -648,6 +698,7 @@ prepForm.addEventListener("submit", async (event) => {
   state.boss = 100;
   state.exchange = 0;
   state.knocked = false;
+  state.frames = { closed: null, open: null };
   stopVoiceArgument(false);
   setVoiceUi("Mic is holstered until the door opens.", "Door closed. Grievance pending.");
   hallwaySet.classList.remove("is-open", "is-knocking");
@@ -669,6 +720,10 @@ prepForm.addEventListener("submit", async (event) => {
     applySession(session);
   } catch {
     state.roommateLine = `What? I was literally about to deal with ${shortTopic(state.argument)}.`;
+  }
+
+  if (state.photoDataUrl && !state.frames.closed) {
+    void generateFrames(state.photoDataUrl);
   }
 });
 

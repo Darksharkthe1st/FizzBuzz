@@ -17,7 +17,7 @@
               <span></span>
               <span></span>
             </div>
-            <label class="photo-evidence" for="roommatePhoto">
+            <label class="photo-evidence">
               <input id="roommatePhoto" type="file" accept="image/*" />
               <span class="upload-copy">Attach roommate evidence</span>
               <img id="photoPreview" alt="Uploaded roommate evidence preview" />
@@ -110,11 +110,15 @@
               </div>
               <div class="roommate-avatar-wrap">
                 <div class="rage-aura"></div>
+                <video id="roommateVideo" autoplay loop muted playsinline></video>
                 <img id="bossPhoto" alt="Distorted roommate boss" />
                 <div class="fallback-face" id="fallbackFace" aria-hidden="true">
                   <span></span>
                   <span></span>
                   <b></b>
+                </div>
+                <div class="video-loading" id="videoLoading" aria-hidden="true">
+                  <span>Generating reactions…</span>
                 </div>
               </div>
             </aside>
