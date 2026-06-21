@@ -808,6 +808,8 @@ function createApp() {
   });
 
   app.get("/api/health", (request, response) => {
+    const sttMode = resolveSttMode();
+    const { sttModel } = buildListenUrl(sttMode);
     response.json({
       ok: true,
       service: "fizzbuzz-backend",
@@ -817,6 +819,10 @@ function createApp() {
         geminiImage: process.env.USE_GEMINI_IMAGE === "true" && Boolean(process.env.GEMINI_API_KEY),
         geminiText: process.env.USE_GEMINI_TEXT !== "false" && Boolean(process.env.GEMINI_API_KEY),
         deepgram: process.env.USE_DEEPGRAM === "true",
+        // Reported regardless of USE_DEEPGRAM so a misconfigured mode is
+        // visible even while Deepgram itself is disabled.
+        deepgramSttMode: sttMode,
+        deepgramSttModel: sttModel,
         pika: process.env.USE_PIKA === "true",
       },
     });
