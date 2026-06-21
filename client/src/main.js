@@ -65,6 +65,11 @@ const state = {
     audio: null,
     objectUrl: "",
     speaking: false,
+    // Resolve callback for the in-flight "wait until the roommate finishes
+    // talking" promise, if any -- stopRoommateSpeech() calls this so a
+    // forced interruption (barge-in) doesn't leave that promise hanging
+    // forever.
+    resolveSpeaking: null,
   },
 };
 
@@ -124,6 +129,12 @@ function cleanupDeepgramVoice(socket, stream, recorder, shouldCloseSocket = true
   if (state.voice.recorder === recorder) state.voice.recorder = null;
 }
 
+// Stops the roommate mid-sentence if they're talking. Used both for the
+// normal "about to play a new line" case and for a deliberate barge-in
+// interruption -- in the interrupt case, nothing else will fire an
+// "ended"/"error" event on the cut-off audio, so resolveSpeaking is called
+// here to release whoever is awaiting "the roommate finished talking"
+// instead of leaving that promise hanging forever.
 function stopRoommateSpeech() {
   if (state.tts.audio) {
     state.tts.audio.pause();
@@ -137,32 +148,55 @@ function stopRoommateSpeech() {
   state.tts.audio = null;
   state.tts.objectUrl = "";
   state.tts.speaking = false;
+  if (state.tts.resolveSpeaking) {
+    const resolveSpeaking = state.tts.resolveSpeaking;
+    state.tts.resolveSpeaking = null;
+    resolveSpeaking();
+  }
 }
 
+// Returns a promise that resolves once playback (or the unavailable/error
+// no-op) is fully done, not just started -- callers that need to wait for
+// the roommate to actually finish talking depend on this.
 function speakWithBrowserVoice(text) {
   if (!("speechSynthesis" in window) || !window.SpeechSynthesisUtterance) {
     console.error("[voice] Browser speech synthesis unavailable.");
-    return;
+    return Promise.resolve();
   }
 
   console.info("[voice] Speaking roommate line with browser speech synthesis.");
   window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 1.04;
-  utterance.pitch = 0.78;
-  utterance.volume = 1;
-  utterance.addEventListener("end", () => {
-    state.tts.speaking = false;
-    console.info("[voice] Browser speech synthesis ended.");
+  return new Promise((resolve) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.04;
+    utterance.pitch = 0.78;
+    utterance.volume = 1;
+    const finish = () => {
+      state.tts.speaking = false;
+      state.tts.resolveSpeaking = null;
+      resolve();
+    };
+    utterance.addEventListener("end", () => {
+      console.info("[voice] Browser speech synthesis ended.");
+      finish();
+    });
+    utterance.addEventListener("error", (event) => {
+      console.error("[voice] Browser speech synthesis error.", event);
+      finish();
+    });
+    state.tts.speaking = true;
+    state.tts.resolveSpeaking = finish;
+    window.speechSynthesis.speak(utterance);
   });
-  utterance.addEventListener("error", (event) => {
-    state.tts.speaking = false;
-    console.error("[voice] Browser speech synthesis error.", event);
-  });
-  state.tts.speaking = true;
-  window.speechSynthesis.speak(utterance);
 }
 
+// Returns a promise that resolves once the roommate has actually finished
+// speaking (audio "ended"/"error", or immediately if there's no line to
+// speak). Callers that advance the battle must await this -- otherwise
+// `state.voice.processing` clears as soon as the /api/argue fetch resolves,
+// well before TTS playback even starts (it's a second, separate network
+// call), leaving a window where a fast follow-up turn from the user can
+// advance the battle again and cut the roommate off mid-sentence.
 async function speakRoommateLine(line) {
   const text = String(line || "").replace(/^Roommate:\s*/i, "").replace(/^"|"$/g, "").trim();
   if (!text) return;
@@ -193,15 +227,22 @@ async function speakRoommateLine(line) {
         requestId: response.headers.get("dg-request-id"),
         model: response.headers.get("dg-model-name"),
       });
-      audio.addEventListener("ended", () => {
-        console.info("[voice] Deepgram TTS playback ended.");
-        stopRoommateSpeech();
+      await new Promise((resolve) => {
+        state.tts.resolveSpeaking = resolve;
+        audio.addEventListener("ended", () => {
+          console.info("[voice] Deepgram TTS playback ended.");
+          stopRoommateSpeech();
+          resolve();
+        });
+        audio.addEventListener("error", (event) => {
+          console.error("[voice] Deepgram TTS playback error; using browser speech.", event);
+          resolve(speakWithBrowserVoice(text));
+        });
+        audio.play().catch((error) => {
+          console.error("[voice] Deepgram TTS playback failed to start; using browser speech.", error);
+          resolve(speakWithBrowserVoice(text));
+        });
       });
-      audio.addEventListener("error", (event) => {
-        console.error("[voice] Deepgram TTS playback error; using browser speech.", event);
-        speakWithBrowserVoice(text);
-      });
-      await audio.play();
       return;
     }
 
@@ -211,10 +252,10 @@ async function speakRoommateLine(line) {
       contentType,
       details,
     });
-    speakWithBrowserVoice(text);
+    await speakWithBrowserVoice(text);
   } catch (error) {
     console.error("[voice] TTS request failed; using browser speech fallback.", error);
-    speakWithBrowserVoice(text);
+    await speakWithBrowserVoice(text);
   }
 }
 
@@ -260,6 +301,14 @@ async function startVoiceArgument() {
 // deliberately not acted on here -- live testing showed EagerEndOfTurn
 // fires too close to the real EndOfTurn (0-109ms apart) to be worth
 // speculative handling this session.
+//
+// Tried true barge-in (mic live through TTS, interrupting the roommate on a
+// new EndOfTurn) and reverted it: relying on echoCancellation to keep the
+// roommate's own voice out of what Deepgram hears was too unreliable in a
+// quiet room, and the demo venue will be noisy -- worse. Back to wait: the
+// mic is gated off during TTS playback (see the dataavailable handler in
+// startDeepgramVoice) and a duplicate/overlapping EndOfTurn while a turn is
+// still resolving is dropped, not acted on.
 function handleFluxTurnInfo(data) {
   const transcript = String(data.transcript || "").trim();
 
@@ -400,6 +449,9 @@ async function startDeepgramVoice(token) {
     // Flux keeps the mic hot across turns, so without this the roommate's
     // own Aura TTS playback can get transcribed as a new user turn and fire
     // a spurious EndOfTurn. Gate transmission, don't close the socket.
+    // (Tried leaving this open for barge-in and relying on
+    // echoCancellation alone -- too unreliable even in a quiet room, and
+    // the real demo venue will be noisier, so reverted to gating.)
     if (state.voice.sttMode === "flux" && state.tts.speaking) return;
     if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
       socket.send(event.data);
@@ -549,8 +601,8 @@ async function resolveLiveArgument(transcript, { teardownVoice = true } = {}) {
       speakButton.disabled = false;
       // state.voice.active is already false here if voice was torn down
       // (above, or by a manual Stop click that raced this resolution) --
-      // checking it (not the teardownVoice param) keeps the message correct
-      // in both cases.
+      // checking it (not the teardownVoice param) keeps the message
+      // correct in both cases.
       setVoiceUi(
         state.voice.active ? "Still listening. Keep arguing whenever you're ready." : "Mic ready for the next accusation.",
         "Say the next part out loud.",
@@ -809,15 +861,23 @@ async function advanceBattle(transcript = "") {
       subtitleLine.textContent = next.complete
         ? next.roommateLine
         : `Roommate: "${next.roommateLine}"`;
-      void speakRoommateLine(next.roommateLine);
+      // Fire the TTS request now (so playback starts as soon as it's ready)
+      // but keep the rest of this turn's UI updates synchronous/instant --
+      // only the function's return (and therefore resolveLiveArgument's
+      // "processing" flag) waits for the roommate to actually finish
+      // speaking, so the battle can't advance again mid-sentence.
+      const speaking = speakRoommateLine(next.roommateLine);
       setHealth();
       bossHealth.parentElement.classList.add("damage-pop");
       window.setTimeout(() => bossHealth.parentElement.classList.remove("damage-pop"), 450);
-      speakButton.disabled = next.complete;
       if (next.complete) {
         speakButton.textContent = "Grievance filed";
         setVoiceUi("Case closed. The mic has nothing left to prove.", next.heard || transcript);
       }
+      // speakButton stays disabled (set true above) through TTS playback too
+      // -- re-enable only once the roommate has actually finished talking.
+      await speaking;
+      speakButton.disabled = next.complete;
       return;
     } catch {
       speakButton.disabled = false;
@@ -840,7 +900,7 @@ async function advanceBattle(transcript = "") {
     state.boss === 0
       ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
       : `Roommate: "${excuse}"`;
-  void speakRoommateLine(
+  const speaking = speakRoommateLine(
     state.boss === 0
       ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
       : excuse,
@@ -849,9 +909,10 @@ async function advanceBattle(transcript = "") {
   bossHealth.parentElement.classList.add("damage-pop");
   window.setTimeout(() => bossHealth.parentElement.classList.remove("damage-pop"), 450);
   if (state.boss === 0) {
-    speakButton.disabled = true;
     speakButton.textContent = "Grievance filed";
   }
+  await speaking;
+  speakButton.disabled = state.boss === 0;
 }
 
 resetButton.addEventListener("click", () => {
