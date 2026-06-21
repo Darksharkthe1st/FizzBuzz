@@ -168,6 +168,8 @@ function createSession(payload) {
     exchange: 0,
     bossTitle: titleBank[titleIndex],
     createdAt: new Date().toISOString(),
+    turnLog: [],
+    analysisCache: new Map(),
   };
   sessions.set(session.id, session);
   return {
@@ -345,7 +347,207 @@ async function generateForeheadPortrait(payload) {
   };
 }
 
-async function advanceArgument(sessionId, transcript = "") {
+// Calm Boundary Meter heuristic (Tier 2 #5). Pure local scoring -- no
+// Deepgram dependency, since this needs to work even when voice falls back
+// to typed/browser mode. Each rule contributes a signed delta and a label;
+// the sum (clamped) is added straight onto battle damage so a clear, calm,
+// specific sentence does more damage than rambling, the way the plan's
+// acceptance criteria asks for.
+const ESCALATION_WORDS = [
+  "shut up", "idiot", "stupid", "hate you", "or else", "i swear", "moron", "pathetic",
+];
+const CLEAR_ASK_PATTERN = /\b(please|i need you to|i need to|can you|could you|i'd like you to|i want you to)\b/i;
+const BOUNDARY_PATTERN = /\b(i won't|i will not|not okay|not ok|needs to stop|this stops|going forward|next time|i'm done|i am done)\b/i;
+
+function scoreBoundary(transcript, argument) {
+  const heard = String(transcript || "").trim();
+  const lowerHeard = heard.toLowerCase();
+  const wordCount = heard.split(/\s+/).filter(Boolean).length;
+  const labels = [];
+  let score = 0;
+  let escalation = false;
+
+  const argumentWords = new Set(
+    String(argument || "")
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((word) => word.length > 3),
+  );
+  const overlap = lowerHeard.split(/\W+/).filter((word) => argumentWords.has(word)).length;
+  if (overlap >= 2) {
+    score += 10;
+    labels.push({ text: "Specific ask bonus", penalty: false });
+  } else if (overlap === 1) {
+    score += 5;
+    labels.push({ text: "Boundary clarity +5", penalty: false });
+  }
+
+  if (CLEAR_ASK_PATTERN.test(heard)) {
+    score += 8;
+    labels.push({ text: "Clear ask bonus", penalty: false });
+  }
+
+  if (BOUNDARY_PATTERN.test(heard)) {
+    score += 8;
+    labels.push({ text: "Boundary stated", penalty: false });
+  }
+
+  if (heard && wordCount < 3) {
+    score -= 6;
+    labels.push({ text: "Mumbled evidence penalty", penalty: true });
+  }
+
+  if (ESCALATION_WORDS.some((word) => lowerHeard.includes(word))) {
+    score -= 10;
+    escalation = true;
+    labels.push({ text: "Escalation warning", penalty: true });
+  }
+
+  return { score: clampNumber(score, -15, 30, 0), labels, escalation };
+}
+
+// Local fallback for Deepgram Intelligence -- keyword-only, used when
+// Deepgram is disabled/unreachable so analysis never blocks a turn.
+function localAnalysisFallback(text) {
+  const lower = text.toLowerCase();
+  let sentimentLabel = "calm";
+  if (/!{2,}|shut up|idiot|stupid|hate/.test(lower)) sentimentLabel = "heated";
+  else if (/sorry|whatever|fine\.?$/.test(lower)) sentimentLabel = "petty but valid";
+
+  let topicLabel = "general grievance";
+  if (/rent|money|bill|pay|owe/.test(lower)) topicLabel = "money";
+  else if (/loud|noise|music|party/.test(lower)) topicLabel = "noise";
+  else if (/dish|trash|clean|chore|sink|laundry/.test(lower)) topicLabel = "chores";
+  else if (/coke|soda|fridge|freezer|snack|food/.test(lower)) topicLabel = "food crime";
+
+  let intentLabel = "setting_boundary";
+  if (/sorry|apolog/.test(lower)) intentLabel = "seeking_apology";
+  else if (/clean|fix|pay|stop|replace/.test(lower)) intentLabel = "requesting_cleanup";
+
+  return { sentimentLabel, topicLabel, intentLabel, summary: text, source: "local" };
+}
+
+// Maps a live Deepgram /v1/read response into game copy. Verified live
+// against the real API on 2026-06-21: results.sentiments.average.{sentiment,
+// sentiment_score}, results.topics.segments[].topics[].topic, and
+// results.intents.segments[].intents[].intent are all real response shapes,
+// not guesses.
+function mapDeepgramAnalysis(body, text) {
+  const lower = text.toLowerCase();
+  const average = body.results?.sentiments?.average;
+  const sentimentScore = typeof average?.sentiment_score === "number" ? average.sentiment_score : 0;
+  const sentimentRaw = average?.sentiment || "neutral";
+
+  let sentimentLabel = "calm";
+  if (sentimentRaw === "negative") {
+    sentimentLabel = sentimentScore <= -0.6 ? "heated" : "petty but valid";
+  } else if (sentimentRaw === "positive") {
+    sentimentLabel = "calm";
+  }
+
+  const dgTopics = (body.results?.topics?.segments || []).flatMap((segment) =>
+    (segment.topics || []).map((topic) => topic.topic),
+  );
+  let topicLabel = "general grievance";
+  if (/rent|money|bill|pay|owe/.test(lower)) topicLabel = "money";
+  else if (/loud|noise|music|party/.test(lower)) topicLabel = "noise";
+  else if (/dish|trash|clean|chore|sink|laundry/.test(lower)) topicLabel = "chores";
+  else if (/coke|soda|fridge|freezer|snack|food/.test(lower)) topicLabel = "food crime";
+  else if (dgTopics[0]) topicLabel = dgTopics[0].toLowerCase();
+
+  let intentLabel = "setting_boundary";
+  if (/sorry|apolog/.test(lower)) intentLabel = "seeking_apology";
+  else if (/clean|fix|pay|stop|replace/.test(lower)) intentLabel = "requesting_cleanup";
+
+  return {
+    sentimentLabel,
+    topicLabel,
+    intentLabel,
+    summary: body.results?.summary?.text || text,
+    source: "deepgram",
+  };
+}
+
+// Deepgram Intelligence round analysis (Tier 2 #6). Cached per-session by
+// exact transcript text so a re-render or duplicate call never re-spends a
+// Deepgram request on the same line. Falls back to the local heuristic on
+// any failure so a flaky network call never blocks the battle from
+// advancing.
+async function analyzeTranscript(session, transcript) {
+  const text = String(transcript || "").trim();
+  if (!text) return null;
+  if (session.analysisCache.has(text)) {
+    return session.analysisCache.get(text);
+  }
+
+  const apiKey = process.env.DEEPGRAM_API_KEY;
+  const enabled = process.env.USE_DEEPGRAM === "true" && Boolean(apiKey);
+  let result;
+
+  if (!enabled) {
+    result = localAnalysisFallback(text);
+  } else {
+    try {
+      const response = await fetch(
+        "https://api.deepgram.com/v1/read?language=en&sentiment=true&intents=true&topics=true&summarize=true",
+        {
+          method: "POST",
+          headers: {
+            authorization: `Token ${apiKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ text }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error(`[analyze] Deepgram Read rejected; status=${response.status}; falling back to local heuristic.`);
+        result = localAnalysisFallback(text);
+      } else {
+        result = mapDeepgramAnalysis(body, text);
+      }
+    } catch (error) {
+      console.error("[analyze] Deepgram Read request failed before receiving a response.", error.message);
+      result = localAnalysisFallback(text);
+    }
+  }
+
+  session.analysisCache.set(text, result);
+  return result;
+}
+
+// Post-fight Deepgram fight card (Tier 2 #7), built from the session's
+// accumulated turnLog at the moment the boss reaches 0.
+function buildFightCard(session) {
+  const turns = session.turnLog;
+  const withConfidence = turns.filter((turn) => typeof turn.confidence === "number");
+  const avgConfidence = withConfidence.length
+    ? withConfidence.reduce((sum, turn) => sum + turn.confidence, 0) / withConfidence.length
+    : null;
+  const avgBoundary = turns.length
+    ? Math.round(turns.reduce((sum, turn) => sum + turn.boundaryScore, 0) / turns.length)
+    : 0;
+  const best = turns.reduce((best, turn) => (!best || turn.boundaryScore > best.boundaryScore ? turn : best), null);
+  const heatedCount = turns.filter((turn) => turn.sentimentLabel === "heated").length;
+
+  let coachingNote = "You stayed steady. A few more specific asks would have ended this even faster.";
+  if (avgBoundary >= 10) {
+    coachingNote = "Your asks were specific and your boundaries were clear -- that's the actual win condition.";
+  } else if (turns.length && heatedCount > turns.length / 2) {
+    coachingNote = "You won, but the heat crept in. Lock the ask in before the volume rises next time.";
+  }
+
+  return {
+    bestLine: best?.heard || "(silence, but a powerful one)",
+    turns: turns.length,
+    avgConfidence,
+    avgBoundary,
+    deflectionsResisted: turns.length,
+    coachingNote,
+  };
+}
+
+async function advanceArgument(sessionId, transcript = "", confidence) {
   const session = sessions.get(sessionId);
   if (!session) {
     return null;
@@ -353,27 +555,55 @@ async function advanceArgument(sessionId, transcript = "") {
 
   const defensive =
     (await generateGeminiArgumentTurn(session, transcript)) || chooseDefensiveResponse(session, transcript);
-  const damage = 10 + session.evidence * 3;
-  const recoil = Math.max(3, session.aggro * 2 - session.evidence);
+  const boundary = scoreBoundary(transcript, session.argument);
+  const analysis = await analyzeTranscript(session, transcript);
+
+  const baseDamage = 10 + session.evidence * 3;
+  const damage = Math.max(4, baseDamage + boundary.score);
+  const recoil = Math.max(3, session.aggro * 2 - session.evidence + (boundary.escalation ? 5 : 0));
 
   session.round += 1;
   session.exchange += 1;
   session.boss = Math.max(0, session.boss - damage);
   session.player = Math.max(0, session.player - recoil);
 
-  return {
+  const heard = truncateForDisplay(transcript, 180);
+  session.turnLog.push({
+    round: session.round,
+    heard,
+    confidence: typeof confidence === "number" ? confidence : null,
+    boundaryScore: boundary.score,
+    sentimentLabel: analysis?.sentimentLabel || null,
+  });
+
+  const complete = session.boss === 0;
+  const result = {
     sessionId: session.id,
     round: session.round,
     player: session.player,
     boss: session.boss,
-    heard: truncateForDisplay(transcript, 180),
+    heard,
     attack: defensive.attack,
-    roommateLine:
-      session.boss === 0
-        ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
-        : defensive.roommateLine,
-    complete: session.boss === 0,
+    roommateLine: complete
+      ? "Roommate has been stunned by a complete sentence. They agree to clean it today, allegedly."
+      : defensive.roommateLine,
+    complete,
+    boundary: { score: boundary.score, labels: boundary.labels },
+    analysis: analysis
+      ? {
+          sentimentLabel: analysis.sentimentLabel,
+          topicLabel: analysis.topicLabel,
+          intentLabel: analysis.intentLabel,
+          source: analysis.source,
+        }
+      : null,
   };
+
+  if (complete) {
+    result.fightCard = buildFightCard(session);
+  }
+
+  return result;
 }
 
 function chooseDefensiveResponse(session, transcript) {
@@ -699,11 +929,42 @@ function resolveTtsSpeed(rawSpeed) {
   return clampNumber(rawSpeed, 0.7, 1.5, 1.0);
 }
 
+// Voice Casting model allowlist. Each of these was confirmed live against
+// /v1/speak on 2026-06-21 (200 + matching dg-model-name); aura-2-helios-en
+// was tried and rejected (400) so it is deliberately excluded. An
+// unrecognized or missing requested model falls back to DEEPGRAM_TTS_MODEL
+// rather than failing the request, since a bad client-side voice id should
+// never break TTS mid-demo.
+const ALLOWED_TTS_MODELS = new Set([
+  "aura-2-thalia-en",
+  "aura-2-arcas-en",
+  "aura-2-zeus-en",
+  "aura-2-orion-en",
+  "aura-2-luna-en",
+  "aura-2-andromeda-en",
+  "aura-2-apollo-en",
+  "aura-2-hera-en",
+  "aura-2-orpheus-en",
+  "aura-2-cora-en",
+  "aura-2-aries-en",
+]);
+
+function resolveTtsModel(requestedModel) {
+  const fallback = process.env.DEEPGRAM_TTS_MODEL || "aura-2-thalia-en";
+  if (typeof requestedModel === "string" && ALLOWED_TTS_MODELS.has(requestedModel)) {
+    return requestedModel;
+  }
+  if (requestedModel) {
+    console.warn(`[voice] Requested TTS model "${requestedModel}" is not on the allowlist; using "${fallback}".`);
+  }
+  return fallback;
+}
+
 async function synthesizeDeepgramSpeech(payload) {
   const apiKey = process.env.DEEPGRAM_API_KEY;
   const enabled = process.env.USE_DEEPGRAM === "true" && Boolean(apiKey);
   const text = createSpeechText(payload.text);
-  const model = process.env.DEEPGRAM_TTS_MODEL || "aura-2-thalia-en";
+  const model = resolveTtsModel(payload.model);
   const speed = resolveTtsSpeed(payload.speed);
 
   console.info(
@@ -850,7 +1111,7 @@ function createApp() {
   });
 
   app.post("/api/argue", async (request, response) => {
-    const next = await advanceArgument(request.body?.sessionId, request.body?.transcript);
+    const next = await advanceArgument(request.body?.sessionId, request.body?.transcript, request.body?.confidence);
     if (!next) {
       response.status(404).json({ error: "Unknown confrontation session" });
       return;

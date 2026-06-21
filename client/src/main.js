@@ -34,6 +34,44 @@ const bossTitle = document.querySelector("#bossTitle");
 const floorNote = document.querySelector("#floorNote");
 const playerHealth = document.querySelector("#playerHealth");
 const bossHealth = document.querySelector("#bossHealth");
+const voiceStyleSelect = document.querySelector("#voiceStyleSelect");
+const previewVoiceButton = document.querySelector("#previewVoiceButton");
+const boundaryLabels = document.querySelector("#boundaryLabels");
+const analysisNote = document.querySelector("#analysisNote");
+const fightCardScreen = document.querySelector("#fightCardScreen");
+const fightCardBestLine = document.querySelector("#fightCardBestLine");
+const fightCardTurns = document.querySelector("#fightCardTurns");
+const fightCardConfidence = document.querySelector("#fightCardConfidence");
+const fightCardBoundary = document.querySelector("#fightCardBoundary");
+const fightCardDeflections = document.querySelector("#fightCardDeflections");
+const fightCardCoaching = document.querySelector("#fightCardCoaching");
+const copySummaryButton = document.querySelector("#copySummaryButton");
+const fightCardResetButton = document.querySelector("#fightCardResetButton");
+
+// Voice Casting (Tier 1 #4 remainder). Labels are performance styles, not
+// identity -- nothing here is inferred from the uploaded roommate photo,
+// per the plan's responsible-AI guardrail. Every model id was confirmed
+// live against /v1/speak on 2026-06-21 (200 + matching dg-model-name).
+const voiceStyleBank = {
+  deadpan: { model: "aura-2-arcas-en", label: "Deadpan" },
+  frantic: { model: "aura-2-zeus-en", label: "Frantic" },
+  smug: { model: "aura-2-orion-en", label: "Smug" },
+  "soft-spoken": { model: "aura-2-luna-en", label: "Soft-spoken" },
+  "theater-kid": { model: "aura-2-orpheus-en", label: "Theater kid" },
+  "deeply-inconvenienced": { model: "aura-2-thalia-en", label: "Deeply inconvenienced" },
+};
+const voiceStyleIds = Object.keys(voiceStyleBank);
+
+function resolveVoiceStyleId(selectedId) {
+  if (selectedId === "surprise") {
+    return voiceStyleIds[Math.floor(Math.random() * voiceStyleIds.length)];
+  }
+  return voiceStyleBank[selectedId] ? selectedId : "deeply-inconvenienced";
+}
+
+function getSelectedVoiceModel() {
+  return voiceStyleBank[state.voiceStyleId]?.model || "aura-2-thalia-en";
+}
 
 const state = {
   argument: "",
@@ -48,6 +86,8 @@ const state = {
   exchange: 0,
   evidence: 4,
   aggro: 3,
+  voiceStyleId: "deeply-inconvenienced",
+  lastFightCard: null,
   voice: {
     active: false,
     mode: "idle",
@@ -60,6 +100,10 @@ const state = {
     finalTranscript: "",
     interimTranscript: "",
     processing: false,
+    // Latest numeric STT confidence seen this turn, sent to /api/argue so
+    // the server can fold it into the post-fight fight card's average --
+    // null whenever the active path isn't real Deepgram (browser fallback).
+    lastConfidence: null,
     // Flux only: the turn_index of the last EndOfTurn that triggered an
     // advanceBattle call, so a duplicate EndOfTurn for the same turn_index
     // (Deepgram retry, etc.) doesn't double-advance the battle. -1 means no
@@ -136,9 +180,11 @@ function setRefereeTurnState(label) {
 function setRefereeConfidence(confidence) {
   if (typeof confidence !== "number" || Number.isNaN(confidence)) {
     refereeConfidence.textContent = "";
+    state.voice.lastConfidence = null;
     return;
   }
   refereeConfidence.textContent = `Confidence: ${Math.round(confidence * 100)}%`;
+  state.voice.lastConfidence = confidence;
 }
 
 function resetRefereePanel() {
@@ -213,11 +259,12 @@ function cleanupDeepgramVoice(socket, stream, recorder, shouldCloseSocket = true
 // that verified window. Defaults to "normal" when boss/aggro aren't known
 // (e.g. the door-opening line, before any round has happened).
 function resolveTtsStyle(bossHealth = 100, aggro = 3) {
-  if (bossHealth <= 0) return { speed: 0.75, label: "Aura TTS: defeated speed" };
-  if (bossHealth <= 30) return { speed: 1.3, label: "Aura TTS: panic speed" };
-  if (aggro >= 4) return { speed: 1.18, label: "Aura TTS: high aggro speed" };
-  if (aggro <= 2) return { speed: 0.85, label: "Aura TTS: fake apology speed" };
-  return { speed: 1.0, label: "Aura TTS: normal speed" };
+  const model = getSelectedVoiceModel();
+  if (bossHealth <= 0) return { speed: 0.75, label: "Aura TTS: defeated speed", model };
+  if (bossHealth <= 30) return { speed: 1.3, label: "Aura TTS: panic speed", model };
+  if (aggro >= 4) return { speed: 1.18, label: "Aura TTS: high aggro speed", model };
+  if (aggro <= 2) return { speed: 0.85, label: "Aura TTS: fake apology speed", model };
+  return { speed: 1.0, label: "Aura TTS: normal speed", model };
 }
 
 // Stops the roommate mid-sentence if they're talking. Used both for the
@@ -304,7 +351,7 @@ async function speakRoommateLine(line, style = resolveTtsStyle()) {
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({ text, speed: style.speed }),
+      body: JSON.stringify({ text, speed: style.speed, model: style.model }),
     });
     const contentType = response.headers.get("content-type") || "";
 
@@ -843,8 +890,85 @@ function applySession(session) {
 function showScreen(screen) {
   prepScreen.classList.toggle("is-active", screen === "prep");
   battleScreen.classList.toggle("is-active", screen === "battle");
+  fightCardScreen.classList.toggle("is-active", screen === "fightcard");
   window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
 }
+
+function renderBoundaryLabels(boundary) {
+  boundaryLabels.innerHTML = "";
+  if (!boundary?.labels?.length) return;
+  for (const label of boundary.labels) {
+    const span = document.createElement("span");
+    span.className = label.penalty ? "boundary-label penalty" : "boundary-label";
+    span.textContent = label.text;
+    boundaryLabels.appendChild(span);
+  }
+}
+
+const analysisCopy = {
+  setting_boundary: "setting a boundary",
+  requesting_cleanup: "requesting cleanup",
+  seeking_apology: "seeking an apology",
+};
+const topicCopy = {
+  chores: "chores",
+  money: "money",
+  noise: "noise",
+  "food crime": "a food crime",
+};
+
+function renderAnalysisNote(analysis) {
+  if (!analysis) {
+    analysisNote.textContent = "";
+    return;
+  }
+  const intent = analysisCopy[analysis.intentLabel] || analysis.intentLabel || "making a point";
+  const topic = topicCopy[analysis.topicLabel] || analysis.topicLabel || "the situation";
+  const sourceTag = analysis.source === "deepgram" ? "Deepgram Intelligence" : "Local read";
+  analysisNote.textContent = `${sourceTag}: ${analysis.sentimentLabel}, ${intent}, about ${topic}.`;
+}
+
+function formatPercent(value) {
+  return typeof value === "number" ? `${Math.round(value * 100)}%` : "--";
+}
+
+function showFightCard(fightCard) {
+  fightCardBestLine.textContent = fightCard.bestLine ? `"${fightCard.bestLine}"` : "--";
+  fightCardTurns.textContent = String(fightCard.turns);
+  fightCardConfidence.textContent = formatPercent(fightCard.avgConfidence);
+  fightCardBoundary.textContent = String(fightCard.avgBoundary);
+  fightCardDeflections.textContent = String(fightCard.deflectionsResisted);
+  fightCardCoaching.textContent = fightCard.coachingNote || "--";
+  showScreen("fightcard");
+}
+
+function buildDemoSummary(fightCard) {
+  return [
+    "Deepgram powered this confrontation: Flux/Nova decided when I was done speaking,",
+    `Aura voiced the roommate, and the boundary meter scored my delivery over ${fightCard.turns} turns`,
+    `(avg boundary clarity ${fightCard.avgBoundary}, avg transcript confidence ${formatPercent(fightCard.avgConfidence)}).`,
+    `Best line: "${fightCard.bestLine}"`,
+  ].join(" ");
+}
+
+copySummaryButton.addEventListener("click", async () => {
+  const summary = buildDemoSummary(state.lastFightCard || {});
+  try {
+    await navigator.clipboard.writeText(summary);
+    copySummaryButton.textContent = "Copied!";
+  } catch (error) {
+    console.error("[fightcard] Clipboard write failed.", error);
+    copySummaryButton.textContent = "Copy failed";
+  } finally {
+    window.setTimeout(() => {
+      copySummaryButton.textContent = "Copy demo summary";
+    }, 1600);
+  }
+});
+
+fightCardResetButton.addEventListener("click", () => {
+  resetButton.click();
+});
 
 roommatePhoto.addEventListener("change", async () => {
   const file = roommatePhoto.files?.[0];
@@ -906,6 +1030,24 @@ foreheadButton.addEventListener("click", async () => {
   }
 });
 
+voiceStyleSelect.addEventListener("change", () => {
+  state.voiceStyleId = resolveVoiceStyleId(voiceStyleSelect.value);
+  console.info("[voice] Voice style selected.", { selected: voiceStyleSelect.value, resolved: state.voiceStyleId });
+});
+
+previewVoiceButton.addEventListener("click", async () => {
+  state.voiceStyleId = resolveVoiceStyleId(voiceStyleSelect.value);
+  const style = { speed: 1.0, label: `Aura TTS: previewing ${voiceStyleBank[state.voiceStyleId].label}`, model: getSelectedVoiceModel() };
+  previewVoiceButton.disabled = true;
+  previewVoiceButton.textContent = "Previewing...";
+  try {
+    await speakRoommateLine("I was literally about to clean that.", style);
+  } finally {
+    previewVoiceButton.disabled = false;
+    previewVoiceButton.textContent = "Preview voice";
+  }
+});
+
 prepForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   state.argument = argumentInput.value;
@@ -921,6 +1063,8 @@ prepForm.addEventListener("submit", async (event) => {
   stopVoiceArgument(false);
   stopRoommateSpeech();
   resetRefereePanel();
+  renderBoundaryLabels(null);
+  renderAnalysisNote(null);
   setVoiceUi("Mic is holstered until the door opens.", "Door closed. Grievance pending.");
   hallwaySet.classList.remove("is-open", "is-knocking");
   doorButton.disabled = false;
@@ -981,7 +1125,11 @@ async function advanceBattle(transcript = "") {
   if (state.sessionId) {
     try {
       speakButton.disabled = true;
-      const next = await postJson("/api/argue", { sessionId: state.sessionId, transcript });
+      const next = await postJson("/api/argue", {
+        sessionId: state.sessionId,
+        transcript,
+        confidence: state.voice.lastConfidence,
+      });
       state.round = next.round;
       state.player = next.player;
       state.boss = next.boss;
@@ -991,6 +1139,8 @@ async function advanceBattle(transcript = "") {
       subtitleLine.textContent = next.complete
         ? next.roommateLine
         : `Roommate: "${next.roommateLine}"`;
+      renderBoundaryLabels(next.boundary);
+      renderAnalysisNote(next.analysis);
       // Fire the TTS request now (so playback starts as soon as it's ready)
       // but keep the rest of this turn's UI updates synchronous/instant --
       // only the function's return (and therefore resolveLiveArgument's
@@ -1008,6 +1158,10 @@ async function advanceBattle(transcript = "") {
       // -- re-enable only once the roommate has actually finished talking.
       await speaking;
       speakButton.disabled = next.complete;
+      if (next.complete && next.fightCard) {
+        state.lastFightCard = next.fightCard;
+        window.setTimeout(() => showFightCard(next.fightCard), 900);
+      }
       return;
     } catch {
       speakButton.disabled = false;
@@ -1015,6 +1169,8 @@ async function advanceBattle(transcript = "") {
     }
   }
 
+  renderBoundaryLabels(null);
+  renderAnalysisNote(null);
   const counter = counters[state.exchange % counters.length];
   const excuse = excuses[(state.exchange + state.aggro) % excuses.length];
   const damage = 10 + state.evidence * 3;
@@ -1050,6 +1206,8 @@ resetButton.addEventListener("click", () => {
   stopVoiceArgument(false);
   stopRoommateSpeech();
   resetRefereePanel();
+  renderBoundaryLabels(null);
+  renderAnalysisNote(null);
   speakButton.textContent = "Argue live";
   state.sessionId = "";
   state.roommateLine = "";
