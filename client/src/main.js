@@ -260,11 +260,10 @@ async function generateFrames(imageDataUrl) {
 }
 
 function startTalkingAnimation() {
-  bossPhotoWrap.classList.add("is-speaking");
   if (!state.frames.closed || !state.frames.open) return;
   stopTalkingAnimation();
-  bossPhotoWrap.classList.add("is-speaking");
   let showOpen = true;
+  bossPhoto.src = state.frames.open;
   state.talkAnim = setInterval(() => {
     bossPhoto.src = showOpen ? state.frames.open : state.frames.closed;
     showOpen = !showOpen;
@@ -276,7 +275,6 @@ function stopTalkingAnimation() {
     clearInterval(state.talkAnim);
     state.talkAnim = null;
   }
-  bossPhotoWrap.classList.remove("is-speaking");
   if (state.frames.closed) bossPhoto.src = state.frames.closed;
 }
 
@@ -333,7 +331,6 @@ async function speakRoommateLine(line, style = resolveTtsStyle()) {
 
   stopRoommateSpeech();
   ttsStyleLabel.textContent = style.label;
-  startTalkingAnimation();
   console.info("[voice] Requesting roommate TTS.", { chars: text.length, speed: style.speed });
 
   try {

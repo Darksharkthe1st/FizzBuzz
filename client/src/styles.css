@@ -691,11 +691,6 @@ input[type="range"] {
   animation: idle-breathe 2.4s ease-in-out infinite;
 }
 
-.roommate-avatar-wrap.is-speaking img,
-.roommate-avatar-wrap.is-speaking .fallback-face {
-  animation: yap 640ms infinite steps(2);
-}
-
 .roommate-avatar-wrap.has-image .fallback-face {
   display: none;
 }
@@ -727,10 +722,6 @@ input[type="range"] {
   border: 5px solid var(--ink);
   border-radius: 0 0 50% 50%;
   transform-origin: top center;
-}
-
-.roommate-avatar-wrap.is-speaking .fallback-face b {
-  animation: mouthFlap 180ms infinite steps(2);
 }
 
 .rage-aura {
@@ -983,12 +974,6 @@ input[type="range"] {
 @keyframes yap {
   50% {
     transform: scale(1.28) translateY(-6%) skewX(5deg);
-  }
-}
-
-@keyframes mouthFlap {
-  50% {
-    transform: scaleY(0.45) translateY(-8%);
   }
 }
 

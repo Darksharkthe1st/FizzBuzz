@@ -8,7 +8,7 @@ import {
   synthesizeDeepgramSpeech,
 } from "./deepgramVoice.js";
 import { createGameService } from "./game.js";
-import { createAvatarJob, generateForeheadPortrait } from "./media.js";
+import { createAvatarJob, generateForeheadPortrait, generateRoommateFrames } from "./media.js";
 
 export async function createApp({ clientDir, distClientDir, isProduction }) {
   const app = express();
@@ -102,6 +102,11 @@ export async function createApp({ clientDir, distClientDir, isProduction }) {
 
   app.post("/api/media/forehead", async (request, response) => {
     const generated = await generateForeheadPortrait(request.body || {});
+    response.status(generated.status).json(generated.body);
+  });
+
+  app.post("/api/media/frames", async (request, response) => {
+    const generated = await generateRoommateFrames(request.body || {});
     response.status(generated.status).json(generated.body);
   });
 
