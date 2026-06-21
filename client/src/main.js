@@ -55,6 +55,11 @@ const state = {
     finalTranscript: "",
     interimTranscript: "",
     processing: false,
+    // Flux only: the turn_index of the last EndOfTurn that triggered an
+    // advanceBattle call, so a duplicate EndOfTurn for the same turn_index
+    // (Deepgram retry, etc.) doesn't double-advance the battle. -1 means no
+    // turn has advanced yet in this voice session.
+    lastAdvancedTurnIndex: -1,
   },
   tts: {
     audio: null,
@@ -220,6 +225,7 @@ async function startVoiceArgument() {
   setVoiceActive(true);
   state.voice.finalTranscript = "";
   state.voice.interimTranscript = "";
+  state.voice.lastAdvancedTurnIndex = -1;
   setVoiceUi("Requesting mic access. The hallway stenographer is cracking knuckles.");
 
   try {
@@ -243,6 +249,50 @@ async function startVoiceArgument() {
     console.error("[voice] /api/voice/token failed; using browser speech fallback.", error);
     startBrowserSpeechFallback(error.message);
   }
+}
+
+// Handles one Flux TurnInfo message. Verified live against /v2/listen
+// (2026-06-21): `transcript` is cumulative for the whole turn so far (each
+// message replaces, not appends), `turn_index` only increments after a
+// genuine EndOfTurn (never after EagerEndOfTurn/TurnResumed on the same
+// turn), and a turn can cycle through EagerEndOfTurn/TurnResumed more than
+// once before it actually closes. Eager EOT and TurnResumed are
+// deliberately not acted on here -- live testing showed EagerEndOfTurn
+// fires too close to the real EndOfTurn (0-109ms apart) to be worth
+// speculative handling this session.
+function handleFluxTurnInfo(data) {
+  const transcript = String(data.transcript || "").trim();
+
+  if (data.event === "StartOfTurn") {
+    setVoiceUi("Hearing you in real time...", transcript);
+    return;
+  }
+
+  if (transcript) {
+    state.voice.finalTranscript = transcript;
+    setVoiceUi(
+      data.event === "EndOfTurn" ? "Heard that. The roommate is preparing an objection." : "Hearing you in real time...",
+      transcript,
+    );
+  }
+
+  if (data.event !== "EndOfTurn") return;
+
+  if (data.turn_index === state.voice.lastAdvancedTurnIndex) {
+    console.warn("[voice] Duplicate EndOfTurn for turn_index", data.turn_index, "; ignoring.");
+    return;
+  }
+  state.voice.lastAdvancedTurnIndex = data.turn_index;
+
+  if (state.voice.processing) {
+    console.warn(
+      "[voice] EndOfTurn arrived while a previous turn was still resolving; dropping turn_index",
+      data.turn_index,
+    );
+    return;
+  }
+
+  void resolveLiveArgument(transcript || state.voice.finalTranscript, { teardownVoice: false });
 }
 
 async function startDeepgramVoice(token) {
@@ -288,12 +338,9 @@ async function startDeepgramVoice(token) {
     }
 
     if (data.type !== "Results") {
-      // Flux's turn-taking events ("Connected", "TurnInfo", etc.) use a
-      // different schema than this handler understands -- that wiring is
-      // Session 2's job. Logging them here now means the real event
-      // payloads are visible during manual testing instead of needing to
-      // re-run the standalone discovery script every time.
-      if (state.voice.sttMode === "flux") {
+      if (state.voice.sttMode === "flux" && data.type === "TurnInfo") {
+        handleFluxTurnInfo(data);
+      } else if (state.voice.sttMode === "flux") {
         console.debug("[voice] Flux event (not yet handled by the game):", data);
       }
       return;
@@ -350,6 +397,10 @@ async function startDeepgramVoice(token) {
 
   recorder.addEventListener("dataavailable", (event) => {
     if (state.voice.socket !== socket) return;
+    // Flux keeps the mic hot across turns, so without this the roommate's
+    // own Aura TTS playback can get transcribed as a new user turn and fire
+    // a spurious EndOfTurn. Gate transmission, don't close the socket.
+    if (state.voice.sttMode === "flux" && state.tts.speaking) return;
     if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
       socket.send(event.data);
     }
@@ -474,13 +525,18 @@ function stopVoiceArgument(shouldResolve = true) {
   }
 }
 
-async function resolveLiveArgument(transcript) {
+async function resolveLiveArgument(transcript, { teardownVoice = true } = {}) {
   const heard = String(transcript || "").trim();
   if (!heard || state.voice.processing) return;
 
   console.info("[voice] Resolving live argument with transcript:", heard);
   state.voice.processing = true;
-  stopVoiceArgument(false);
+  // Flux's persistent-connection mode resolves a turn without tearing down
+  // the socket/mic -- the conversation keeps going. Nova (and manual Stop
+  // arguing, in either mode) always tears down here, same as before.
+  if (teardownVoice) {
+    stopVoiceArgument(false);
+  }
   setVoiceUi("Roommate heard you. Unfortunately, that made them more defensive.", heard);
 
   try {
@@ -491,7 +547,14 @@ async function resolveLiveArgument(transcript) {
     state.voice.processing = false;
     if (state.boss > 0) {
       speakButton.disabled = false;
-      setVoiceUi("Mic ready for the next accusation.", "Say the next part out loud.");
+      // state.voice.active is already false here if voice was torn down
+      // (above, or by a manual Stop click that raced this resolution) --
+      // checking it (not the teardownVoice param) keeps the message correct
+      // in both cases.
+      setVoiceUi(
+        state.voice.active ? "Still listening. Keep arguing whenever you're ready." : "Mic ready for the next accusation.",
+        "Say the next part out loud.",
+      );
     }
   }
 }

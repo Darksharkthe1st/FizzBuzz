@@ -191,6 +191,15 @@ progress, just not the multi-turn experience the sponsor plan describes.
 Whichever way this goes, write the decision and its reasoning into
 `docs/SESSION_2-3_HANDOFF.md` so Session 3 isn't left to reverse-engineer it.
 
+> **Decision made (2026-06-21, confirmed with the user): persistent
+> connection.** Session 2 will rework `stopVoiceArgument`/`resolveLiveArgument`
+> so the Flux socket and mic stream survive across multiple turns within one
+> "Argue live" session, and the EndOfTurn handler calls `advanceBattle`
+> directly without tearing down voice state. This means the TTS-playback
+> audio-gating mitigation below is in scope for this session, not deferred,
+> and `turn_index` is expected to be a meaningful per-connection signal once
+> built (confirm live in Step 0 rather than assuming).
+
 This decision changes what later steps even need to test:
 
 - **If persistent-connection**: `turn_index` becomes a meaningful signal, and
@@ -216,7 +225,59 @@ outbound audio frames during TTS playback — don't close the socket, just
 stop transmitting) into this session rather than discovering it during a demo
 run.
 
-### Step 0: live discovery test (now that the architecture question is settled)
+### Step 0 results (confirmed live against `/v2/listen`, 2026-06-21)
+
+Tested with `model=flux-general-en`, `eot_threshold=0.7`, `eager_eot_threshold=0.6`,
+two synthesized utterances streamed back-to-back on **one persistent
+connection** (matching the Step -1 decision).
+
+1. **`data.event === "EndOfTurn"` is the literal string.** Confirmed live —
+   happened to match the plan's original wording, but this is now verified,
+   not assumed.
+2. **`EagerEndOfTurn` fires, but not meaningfully earlier than `EndOfTurn`.**
+   Observed gaps: 0ms apart (turn 0), ~109ms apart (turn 1) — well under the
+   ≥300ms bar set above. **Decision: drop Eager EOT from this session's
+   scope.** There is nothing worth preparing early, so the `TurnResumed`
+   cancellation mechanism is also out of scope for this session — don't
+   build `AbortController` plumbing for a feature that isn't being used.
+3. **The `transcript` field on `TurnInfo` is cumulative per turn, not
+   incremental.** Successive `Update`/`EndOfTurn` messages for the same
+   `turn_index` carry the full sentence-so-far ("Hey," → "Hey" → "Hey. Can"
+   → ... → full sentence). The Flux handler must **replace**
+   `state.voice.finalTranscript` with each message's `transcript` field
+   verbatim — do not reuse Nova's concatenation pattern
+   ([main.js:310-311](../client/src/main.js#L310)), it would double up words.
+4. **`turn_index` increments cleanly per turn on a persistent connection**
+   (`0 → 1 → 2`, confirmed across two real turns) — it is a meaningful
+   per-connection signal as hypothesized. No duplicate `EndOfTurn` for the
+   same `turn_index` was observed, but only the clean case was tested — a
+   network blip/reconnect-mid-turn scenario was not, so don't treat dedupe
+   as fully proven, just proven for the happy path.
+5. **`StartOfTurn` fires mid-turn, once real speech is detected** — not at
+   the moment a new `turn_index` opens (which starts with one or more
+   empty-transcript `Update` events first, e.g. silence/lead-in audio). This
+   maps directly to the sponsor plan's "User started speaking" UI state
+   (Tier 1 #2) — use `StartOfTurn`, not the `turn_index` boundary, to drive
+   that indicator.
+6. **`TurnResumed` confirmed in a follow-up live-mic test (2026-06-21).** Real
+   speech with a genuine mid-sentence pause ("Okay, here's the thing... I
+   really did mean to clean it up, I just lost track of time... [pause]
+   what?") produced `EagerEndOfTurn → TurnResumed → Update → EagerEndOfTurn →
+   Update → EndOfTurn`, all under the **same** `turn_index` — confirming
+   `turn_index` only increments after a genuine `EndOfTurn`, never after a
+   false-alarm `EagerEndOfTurn`/`TurnResumed` cycle. This is strong
+   confirmation that `turn_index` is the correct per-turn dedupe/boundary
+   key for the persistent-connection design. Also note: a single turn_index
+   can cycle through `EagerEndOfTurn`/`TurnResumed` more than once before
+   actually closing — don't assume exactly one `EagerEndOfTurn` precedes one
+   `EndOfTurn`. (Real hesitant speech triggered a ~1.06s Eager→Resumed→Final
+   span here, vs. near-zero in the earlier clean synthetic-speech test — the
+   mechanism is real, it just wasn't worth building against this session's
+   clean-speech-only test. Eager EOT/TurnResumed handling remains out of
+   scope for this session per the decision above; this is recorded for
+   whichever future session revisits it.)
+
+### Step 0 original plan (for reference — superseded by results above)
 
 Run a live discovery test against `/v2/listen` with audio that actually
 triggers a high `end_of_turn_confidence` (the Session 1 test never did —
